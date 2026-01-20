@@ -1,0 +1,30 @@
+export const earningOverviewData = {
+  yearly: [
+    { year: 2021, newUsers: 1200 },
+    { year: 2022, newUsers: 1450 },
+    { year: 2023, newUsers: 1600 },
+    { year: 2024, newUsers: 1750 },
+    { year: 2025, newUsers: 1900 },
+  ],
+  monthly: [
+    { month: "Jan", newUsers: 120 },
+    { month: "Feb", newUsers: 130 },
+    { month: "Mar", newUsers: 140 },
+    { month: "Apr", newUsers: 150 },
+    { month: "May", newUsers: 160 },
+    { month: "Jun", newUsers: 170 },
+    { month: "Jul", newUsers: 180 },
+    { month: "Aug", newUsers: 190 },
+    { month: "Sep", newUsers: 200 },
+    { month: "Oct", newUsers: 210 },
+    { month: "Nov", newUsers: 220 },
+    { month: "Dec", newUsers: 230 },
+  ],
+  weekly: [
+    { week: "Week 1", newUsers: 25 },
+    { week: "Week 2", newUsers: 30 },
+    { week: "Week 3", newUsers: 28 },
+    { week: "Week 4", newUsers: 32 },
+    { week: "Week 5", newUsers: 35 },
+  ],
+};

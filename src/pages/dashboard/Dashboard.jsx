@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BadgeDollarSign, Bell, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
-import { bookingRows, earningsBreakdown, headerUser, sidebarLinks, statCards } from "../../data/dashboardData";
+import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
+import { bookingRows, earningsBreakdown, sidebarLinks, statCards } from "../../data/dashboardData";
 
 const ACCENT = "#C85344";
 
@@ -178,29 +178,6 @@ const RecentBookings = () => (
   </div>
 );
 
-const Header = () => (
-  <div className="sticky top-0 z-20 rounded-2xl border border-gray-200 bg-white px-6 py-5 shadow-sm">
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900 md:text-3xl">Welcome Back, Admin 👋</h1>
-        <p className="text-sm text-gray-500">Today&apos;s Overview</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <button className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:text-[#C85344]">
-          <Bell className="h-5 w-5" />
-        </button>
-        <div className="flex items-center gap-3">
-          <img src={headerUser.avatar} alt={headerUser.name} className="h-11 w-11 rounded-full object-cover" />
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-900">{headerUser.name}</p>
-            <p className="text-xs text-gray-500">{headerUser.role}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 const SidebarPreview = () => (
   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:hidden">
     <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
@@ -224,7 +201,6 @@ const SidebarPreview = () => (
 const Dashboard = () => {
   return (
     <div className="space-y-6">
-      <Header />
       <SidebarPreview />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {statCards.map((card) => (
@@ -238,5 +214,10 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
+
 
 

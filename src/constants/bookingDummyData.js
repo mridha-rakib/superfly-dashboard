@@ -26,6 +26,7 @@ export const bookingDummyData = [
     },
     status: "Ongoing",
     payment: "Paid",
+    paymentStatus: "Paid",
   },
 
   {
@@ -55,6 +56,7 @@ export const bookingDummyData = [
     },
     status: "Pending",
     payment: "Unpaid",
+    paymentStatus: "Unpaid",
   },
 
   {
@@ -84,5 +86,36 @@ export const bookingDummyData = [
     },
     status: "Complete",
     payment: "Paid",
+    paymentStatus: "Paid",
+  },
+
+  {
+    id: "BKG-004",
+    customerInfo: {
+      businessName: "Metro Builders Ltd.",
+      email: "projects@metrobuilders.com",
+      phone: "01788004567",
+      city: "Dhaka",
+      address: "Plot 22, Sector 4, Uttara",
+    },
+    cleaningDetails: {
+      serviceType: "Post-Construction Cleaning",
+      squareFoot: 4200,
+      frequency: "one-time",
+    },
+    scheduling: {
+      preferredDate: "2025-02-05",
+      startTime: "8:30 AM",
+      endTime: "2:30 PM",
+      assignedCleaner: "",
+      jobNote: "Dust-heavy site, bring extra masks.",
+    },
+    pricing: {
+      totalPrice: 2100,
+      cleanerPrice: 1200,
+    },
+    status: "In Progress",
+    payment: "Partial",
+    paymentStatus: "Partial",
   },
 ];

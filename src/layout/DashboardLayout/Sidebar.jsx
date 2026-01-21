@@ -1,21 +1,12 @@
 // src/components/layout/Sidebar/Sidebar.jsx
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import SidebarItem from "./SidebarItem";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { useLocation, useNavigate } from "react-router-dom";
+import { LogOut, Menu, X } from "lucide-react";
 import { useDispatch } from "react-redux";
+import { sidebarLinks } from "../../data/dashboardData";
 import { useLogoutMutation } from "../../store/features/api/apiSlice";
 import { logout } from "../../store/features/auth/authSlice";
-import { useSelector } from "react-redux";
-import { selectUserRole } from "../../store/features/auth/authSlice";
-
-// Role constants for better maintainability
-const ROLES = {
-  SUPER_ADMIN: "superadmin",
-  ADMIN: "admin",
-  USER: "user",
-};
+import SidebarItem from "./SidebarItem";
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -23,23 +14,14 @@ const Sidebar = () => {
   const dispatch = useDispatch();
   const [logoutApi] = useLogoutMutation();
   const [isOpen, setIsOpen] = useState(false);
-  const userRole = useSelector(selectUserRole);
 
-  const allMenuItems = [
-    { name: "Dashboard", path: "/" },
-    { name: "Bookings", path: "/bookings" },
-    { name: "Users", path: "/users" },
-    { name: "Pricing", path: "/pricing" },
-    { name: "Job Reports", path: "/job-reports" },
-    { name: "Settings", path: "/settings" },
-  ];
+  const allMenuItems = sidebarLinks.map((link) => ({
+    label: link.label,
+    path: link.href,
+  }));
 
   // Filter menu items based on user role
   const menuItems = allMenuItems.filter((item) => {
-    // Hide Users section for admin role (but allow SuperAdmin and other roles)
-    // if (item.name === "Users" && userRole?.toLowerCase() === ROLES.ADMIN) {
-    //   return false;
-    // }
     return true;
   });
 
@@ -66,66 +48,53 @@ const Sidebar = () => {
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-20 lg:hidden"
+          className="fixed inset-0 z-20 bg-black/20 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full w-64 z-30 transform transition-transform duration-300 ease-in-out bg-white flex flex-col
-        ${
+        className={`fixed top-0 left-0 z-30 flex h-full w-64 transform flex-col border-r border-gray-100 bg-white transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 lg:relative lg:z-auto`}
       >
-        <div className="pt-5 flex items-center justify-center relative px-4 lg:px-5">
-          {/* Centered Logo */}
-          <img
-            src="logo.png"
-            alt="Logo"
-            className="w-24 h-24 mx-auto"
-          />
-
-          {/* Close button on the far right */}
+        <div className="relative flex items-center justify-between px-5 py-6">
+          <span className="text-lg font-semibold text-gray-900">Dashboard</span>
           <button
-            className="absolute right-0 top-1/2 transform -translate-y-1/2 lg:hidden p-2 rounded-md hover:bg-gray-100 focus:outline-none"
+            className="rounded-md p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
             onClick={() => setIsOpen(false)}
+            aria-label="Close sidebar"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto min-h-0">
-          {menuItems.map((item) => (
-            <div key={item.name} onClick={() => handleMenuClick(item.path)}>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+          {menuItems.map((item) => {
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(item.path);
+
+            return (
               <SidebarItem
+                key={item.path}
                 item={item}
-                isActive={location.pathname === item.path}
+                isActive={isActive}
+                onClick={() => handleMenuClick(item.path)}
               />
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Sign Out Button - Positioned at bottom */}
-        <div className="p-4 border-t border-gray-200 bg-white">
+        <div className="border-t border-gray-100 p-4">
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#C85344]/30 px-4 py-3 text-sm font-medium text-[#C85344] transition hover:bg-[#C85344]/10"
           >
-            <HugeiconsIcon icon={Logout01Icon} className="w-5 h-5 mr-3" />
+            <LogOut className="h-5 w-5" />
             Sign Out
           </button>
         </div>
@@ -134,23 +103,11 @@ const Sidebar = () => {
       {/* Hamburger button for mobile */}
       {!isOpen && (
         <button
-          className="fixed top-4 left-4 z-40 p-2 rounded-md bg-white shadow-md lg:hidden"
+          className="fixed left-4 top-4 z-40 rounded-md bg-white p-2 shadow-md lg:hidden"
           onClick={() => setIsOpen(true)}
+          aria-label="Open sidebar"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 text-gray-700"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
+          <Menu className="h-6 w-6 text-gray-700" />
         </button>
       )}
     </>

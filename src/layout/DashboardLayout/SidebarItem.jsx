@@ -1,85 +1,31 @@
 // src/components/layout/Sidebar/SidebarItem.jsx
-import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  DashboardSquare01Icon,
-  UserMultipleIcon,
-  Settings01Icon,
-  AnalyticsUpIcon,
-  CreditCardPosIcon,
-  Appointment02Icon,
-} from "@hugeicons/core-free-icons";
+import React from "react";
+import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
+
+const iconMap = {
+  Dashboard: LayoutDashboard,
+  Bookings: CalendarCheck,
+  Cleaners: Users,
+  Pricing: BadgeDollarSign,
+  "Job Reports": FileText,
+  Settings,
+};
 
 const SidebarItem = ({ item, isActive, onClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const handleItemClick = () => {
-    if (item.hasView) {
-      setIsExpanded(!isExpanded);
-    } else if (onClick) {
-      onClick();
-    } else if (item.path) {
-      navigate(item.path);
-    }
-  };
-
-  const handleViewClick = (e, viewPath) => {
-    e.stopPropagation();
-    navigate(viewPath);
-  };
-
-  // Icon mapping
-  const iconMap = {
-    Dashboard: <HugeiconsIcon icon={DashboardSquare01Icon} />,
-    Bookings: <HugeiconsIcon icon={Appointment02Icon} />,
-    Users: <HugeiconsIcon icon={UserMultipleIcon} />,
-    Pricing: <HugeiconsIcon icon={CreditCardPosIcon} />,
-    "Job Reports": <HugeiconsIcon icon={AnalyticsUpIcon} />,
-    Settings: <HugeiconsIcon icon={Settings01Icon} />,
-  };
+  const Icon = iconMap[item.label] || LayoutDashboard;
+  const baseClasses = "flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition";
+  const activeClasses = "bg-[#C85344]/10 text-[#C85344]";
+  const inactiveClasses = "text-gray-700 hover:bg-[#C85344]/5 hover:text-[#C85344]";
 
   return (
-    <div className="mb-1">
-      <div
-        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-          isActive ? " text-[#FF69B4] font-medium" : " hover:text-[#FF69B4]"
-        }`}
-        onClick={handleItemClick}
-      >
-        <div className="flex items-center">
-          <span className="mr-3">{iconMap[item.name]}</span>
-          <span className="text-sm">{item.name}</span>
-        </div>
-        {/* {item.hasView && (
-          <span>
-            {isExpanded ? (
-              <ChevronDownIcon className="h-4 w-4" />
-            ) : (
-              <ChevronRightIcon className="h-4 w-4" />
-            )}
-          </span>
-        )} */}
-      </div>
-
-      {/* {item.hasView && isExpanded && (
-        <div className="ml-6 mt-1">
-          <div
-            className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
-              location.pathname === item.viewPath
-                ? 'bg-[#9D4C1D] text-white font-medium'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            onClick={(e) => handleViewClick(e, item.viewPath)}
-          >
-            <EyeIcon className="h-4 w-4 mr-2" />
-            <span className="text-sm">View {item.name}</span>
-          </div>
-        </div>
-      )} */}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+    >
+      <Icon className={`h-5 w-5 ${isActive ? "text-[#C85344]" : "text-gray-500"}`} />
+      <span className="truncate">{item.label}</span>
+    </button>
   );
 };
 

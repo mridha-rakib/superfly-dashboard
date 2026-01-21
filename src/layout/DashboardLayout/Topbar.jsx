@@ -1,15 +1,10 @@
 // src/components/layout/Topbar/Topbar.jsx
-import { Notification01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import userdummy from "../../assets/images/user-dummy.png";
-import { useNotification } from "../../contexts/NotificationContext";
-import { useGetProfileQuery } from "../../store/features/api/apiSlice";
 import {
-  useGetNotificationsQuery,
   useMarkAllNotificationsAsReadMutation,
   useMarkNotificationAsReadMutation,
 } from "../../store/features/api/notificationApiSlice";
@@ -51,7 +46,7 @@ const Topbar = () => {
   };
 
   // Notification API response -- rakib
-  const notifications =[
+  const notifications = [
     {
       _id: 1,
       title: "Notification 1",
@@ -75,6 +70,7 @@ const Topbar = () => {
     },
   ]
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const isLoadingNotifications = false;
 
   const formatNotificationTime = (dateString) => {
     try {
@@ -116,10 +112,7 @@ const Topbar = () => {
               setIsProfileOpen(false);
             }}
           >
-            <HugeiconsIcon
-              icon={Notification01Icon}
-              className="w-5 h-5 sm:w-6 sm:h-6"
-            />
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
             {unreadCount > 0 && (
               <span className="absolute top-0 right-0 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 text-[10px] sm:text-xs font-bold text-white bg-red-500 rounded-full">
                 {unreadCount}

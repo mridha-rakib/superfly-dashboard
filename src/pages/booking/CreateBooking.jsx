@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Filter, Search, Users as UsersIcon } from "lucide-react";
+import { Filter, Users as UsersIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { useCleanerStore } from "../../state/cleanerStore";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
+import { useCleanerStore } from "../../state/cleanerStore";
 
 const cardClass =
   "bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6";
@@ -30,7 +30,6 @@ const CreateBooking = () => {
     preferredDate: "",
     startTime: "",
     endTime: "",
-    assignedCleaner: "",
     jobNote: "",
 
     // 4. Pricing & Payment
@@ -309,21 +308,6 @@ const CreateBooking = () => {
             />
           </div>
 
-          <div>
-            <label className={labelClass}>Assign Cleaner</label>
-            <select
-              name="assignedCleaner"
-              value={formData.assignedCleaner}
-              onChange={handleChange}
-              className={inputClass}
-            >
-              <option value="">Select Cleaner</option>
-              <option value="cleaner1">Cleaner 1</option>
-              <option value="cleaner2">Cleaner 2</option>
-              <option value="cleaner3">Cleaner 3</option>
-            </select>
-            <p className={hintClass}>Legacy single-cleaner field (unchanged).</p>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">

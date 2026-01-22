@@ -20,7 +20,10 @@ const initialState = {
     totalItems: 0,
     itemsPerPage: 8,
   },
+  selectedQuote: null,
   isLoading: false,
+  isDeleting: false,
+  isLoadingDetail: false,
   error: null,
 };
 
@@ -58,6 +61,46 @@ export const useQuoteStore = create((set, get) => ({
       return items;
     } catch (error) {
       set({ isLoading: false, error: parseError(error) });
+      throw error;
+    }
+  },
+
+  fetchQuoteById: async (id) => {
+    set({ isLoadingDetail: true, error: null });
+    try {
+      const response = await quoteApi.getById(id);
+      const quote = response?.data || response;
+      set({ selectedQuote: quote, isLoadingDetail: false });
+      return quote;
+    } catch (error) {
+      set({ isLoadingDetail: false, error: parseError(error) });
+      throw error;
+    }
+  },
+
+  clearSelected: () => set({ selectedQuote: null }),
+
+  deleteQuote: async (id) => {
+    set({ isDeleting: true, error: null });
+    try {
+      await quoteApi.deleteQuote(id);
+      set((state) => {
+        const remaining = (state.quotes || []).filter(
+          (q) => (q._id || q.id) !== id
+        );
+        const totalItems = Math.max(0, (state.pagination.totalItems || 1) - 1);
+        return {
+          quotes: remaining,
+          pagination: {
+            ...state.pagination,
+            totalItems,
+          },
+          isDeleting: false,
+        };
+      });
+      return true;
+    } catch (error) {
+      set({ isDeleting: false, error: parseError(error) });
       throw error;
     }
   },

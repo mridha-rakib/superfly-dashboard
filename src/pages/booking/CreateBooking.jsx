@@ -1,4 +1,4 @@
-import { Filter, Users as UsersIcon } from "lucide-react";
+import { Filter, Users as UsersIcon, PieChart, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
@@ -119,6 +119,10 @@ const CreateBooking = () => {
     Number(formData.cleanerPrice),
     formData.assignedCleaners
   );
+  const selectedCount = formData.assignedCleaners.length;
+  const totalCleanerPrice = Number(formData.cleanerPrice) || 0;
+  const avgCleanerPrice =
+    selectedCount > 0 ? (totalCleanerPrice / selectedCount).toFixed(2) : "0.00";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">

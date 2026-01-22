@@ -8,6 +8,11 @@ export const quoteApi = {
     return unwrap(response);
   },
 
+  getById: async (id) => {
+    const response = await httpClient.get(`/quotes/${id}`);
+    return unwrap(response);
+  },
+
   assignCleaners: async (quoteId, payload) => {
     const response = await httpClient.patch(
       `/quotes/${quoteId}/assign-cleaner`,
@@ -21,6 +26,11 @@ export const quoteApi = {
       `/quotes/${quoteId}/status`,
       payload
     );
+    return unwrap(response);
+  },
+
+  deleteQuote: async (quoteId) => {
+    const response = await httpClient.delete(`/quotes/${quoteId}`);
     return unwrap(response);
   },
 };

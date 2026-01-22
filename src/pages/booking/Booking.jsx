@@ -77,7 +77,16 @@ function Booking() {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
 
   const perPage = 8;
-  const { quotes, pagination, isLoading, error, fetchQuotes, clearError } = useQuoteStore();
+  const {
+    quotes,
+    pagination,
+    isLoading,
+    isDeleting,
+    error,
+    fetchQuotes,
+    deleteQuote,
+    clearError,
+  } = useQuoteStore();
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -184,6 +193,17 @@ function Booking() {
 
   const handleAssignCleaner = (booking) => {
     toast.info(`Open cleaner assignment for ${booking.id}`);
+  };
+
+  const handleDelete = async (quoteId) => {
+    const confirmed = window.confirm("Delete this booking? This cannot be undone.");
+    if (!confirmed) return;
+    try {
+      await deleteQuote(quoteId);
+      toast.success("Booking deleted");
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete booking");
+    }
   };
 
   const createOptions = [
@@ -311,6 +331,11 @@ function Booking() {
         {isLoading && (
           <div className="px-6 py-4 text-sm text-gray-500">Loading bookings...</div>
         )}
+        {isDeleting && (
+          <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-100">
+            Deleting booking...
+          </div>
+        )}
         <div className="hidden lg:block">
           <table className="min-w-full text-sm">
             <thead className="bg-[#FFF6F3] text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -404,7 +429,7 @@ function Booking() {
                           <Edit3 className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => toast.info(`Delete flow for ${b.id}`)}
+                          onClick={() => handleDelete(b.id)}
                           className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
                           title="Delete"
                         >
@@ -489,7 +514,7 @@ function Booking() {
                     <Edit3 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => toast.info(`Delete flow for ${b.id}`)}
+                    onClick={() => handleDelete(b.id)}
                     className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
                   >
                     <Trash2 className="h-4 w-4" />

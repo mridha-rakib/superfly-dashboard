@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import "react-toastify/dist/ReactToastify.css";
 import userdummy from "../../assets/images/user-dummy.png";
+import { useAuthStore } from "../../state/authStore";
 import {
   useMarkAllNotificationsAsReadMutation,
   useMarkNotificationAsReadMutation,
@@ -38,11 +39,11 @@ const Topbar = () => {
   const [markAsRead] = useMarkNotificationAsReadMutation();
   const [markAllAsRead] = useMarkAllNotificationsAsReadMutation();
 
-  // const { currentUser, logout } = useAuth();
+  const { user } = useAuthStore();
   const currentUser = {
-    name: "Mohammad",
-    role: "Admin",
-    avatar: userdummy,
+    name: user?.fullName || user?.name || "User",
+    role: user?.role === "super_admin" ? "Super Admin" : user?.role || "Admin",
+    avatar: user?.profileImage || userdummy,
   };
 
   // Notification API response -- rakib

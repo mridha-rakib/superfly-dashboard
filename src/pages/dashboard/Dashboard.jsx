@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React, { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
 import { bookingRows, earningsBreakdown, sidebarLinks, statCards } from "../../data/dashboardData";
@@ -55,7 +55,7 @@ const StatCard = ({ title, value, prefix, helper, icon }) => {
 };
 
 const EarningsOverview = () => {
-  const [period, setPeriod] = React.useState("daily");
+  const [period, setPeriod] = useState("daily");
   const chartData = earningsBreakdown[period] || [];
 
   const periods = [
@@ -88,8 +88,8 @@ const EarningsOverview = () => {
           ))}
         </div>
       </div>
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-72 w-full" style={{ minHeight: 280 }}>
+        <ResponsiveContainer width="100%" height="100%" minHeight={280} minWidth={320}>
           <BarChart
             data={chartData}
             barSize={period === "yearly" ? 40 : 36}
@@ -199,6 +199,24 @@ const SidebarPreview = () => (
 );
 
 const Dashboard = () => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3 shadow-sm">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C85344] border-t-transparent" />
+          <span className="text-sm font-semibold text-gray-700">Loading dashboard�</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SidebarPreview />
@@ -214,10 +232,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
-
-
-
-
-

@@ -1,25 +1,11 @@
 import { Delete02Icon, Edit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import React, { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { useCleaningServiceStore } from "../../state/cleaningServiceStore";
 
 function Pricing() {
-  const [pricingData, setPricingData] = useState([
-    { id: 1, service: "Bedroom", price: 10, lastUpdated: "05 Nov 2025" },
-    { id: 2, service: "Bathroom", price: 15, lastUpdated: "05 Nov 2025" },
-    { id: 3, service: "Kitchen", price: 20, lastUpdated: "05 Nov 2025" },
-    { id: 4, service: "Window", price: 10, lastUpdated: "05 Nov 2025" },
-    { id: 5, service: "Living Room", price: 25, lastUpdated: "04 Nov 2025" }
-  ]);
-
-  const [priceChanges, setPriceChanges] = useState([
-    { id: 1, date: "06 Nov", editedBy: "Admin", service: "Kitchen", oldPrice: 18, newPrice: 20 },
-    { id: 2, date: "06 Nov", editedBy: "Admin", service: "Kitchen", oldPrice: 18, newPrice: 20 },
-    { id: 3, date: "06 Nov", editedBy: "Admin", service: "Kitchen", oldPrice: 18, newPrice: 20 },
-    { id: 4, date: "06 Nov", editedBy: "Admin", service: "Kitchen", oldPrice: 18, newPrice: 20 },
-    { id: 5, date: "06 Nov", editedBy: "Admin", service: "Kitchen", oldPrice: 18, newPrice: 20 }
-  ]);
-
   const [editingId, setEditingId] = useState(null);
   const [editPrice, setEditPrice] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -28,56 +14,72 @@ function Pricing() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({
     service: "",
-    price: ""
+    price: "",
   });
 
-  // Filter pricing data based on search term
-  const filteredPricingData = useMemo(
-    () =>
-      pricingData.filter((item) =>
-        item.service.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [pricingData, searchTerm]
-  );
+  const {
+    services,
+    priceHistory,
+    isLoadingServices,
+    isLoadingHistory,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    error,
+    fetchServices,
+    fetchPriceHistory,
+    addService,
+    updateServicePrice,
+    removeService,
+    clearError,
+  } = useCleaningServiceStore();
+
+  useEffect(() => {
+    fetchServices().catch(() => {
+      toast.error("Failed to load services");
+    });
+    fetchPriceHistory().catch(() => {
+      toast.error("Failed to load price history");
+    });
+  }, [fetchPriceHistory, fetchServices]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const filteredPricingData = useMemo(() => {
+    if (!services) return [];
+    return services.filter((item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [services, searchTerm]);
 
   const handleEdit = (item) => {
-    setEditingId(item.id);
+    setEditingId(item._id || item.id);
     setEditPrice(item.price.toString());
   };
 
-  const handleSave = (id) => {
+  const handleSave = async (id) => {
     if (!editPrice || isNaN(editPrice) || parseFloat(editPrice) <= 0) {
       toast.error("Please enter a valid price");
       return;
     }
 
-    const newPrice = parseFloat(editPrice);
-    const item = pricingData.find(item => item.id === id);
-    
-    if (item && item.price !== newPrice) {
-      // Add to price changes history
-      const newChange = {
-        id: Date.now(),
-        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-        editedBy: "Admin",
-        service: item.service,
-        oldPrice: item.price,
-        newPrice: newPrice
-      };
-      setPriceChanges(prev => [newChange, ...prev.slice(0, 4)]); // Keep only 5 most recent
+    try {
+      await updateServicePrice(id, parseFloat(editPrice));
+      await fetchPriceHistory();
+      toast.success("Price updated successfully!");
+      setEditingId(null);
+      setEditPrice("");
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update price";
+      toast.error(message);
     }
-
-    setPricingData(prev => 
-      prev.map(item => 
-        item.id === id 
-          ? { ...item, price: newPrice, lastUpdated: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }
-          : item
-      )
-    );
-
-    setEditingId(null);
-    setEditPrice("");
-    toast.success("Price updated successfully!");
   };
 
   const handleCancel = () => {
@@ -90,13 +92,22 @@ function Pricing() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (itemToDelete) {
-      setPricingData(prev => prev.filter(item => item.id !== itemToDelete.id));
-      toast.success(`${itemToDelete.service} deleted successfully!`);
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    const id = itemToDelete._id || itemToDelete.id;
+    try {
+      await removeService(id);
+      toast.success(`${itemToDelete.name} deleted successfully!`);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete service";
+      toast.error(message);
+    } finally {
+      setShowDeleteModal(false);
+      setItemToDelete(null);
     }
-    setShowDeleteModal(false);
-    setItemToDelete(null);
   };
 
   const handleCancelDelete = () => {
@@ -108,29 +119,58 @@ function Pricing() {
     setShowAddModal(true);
   };
 
-  const handleSaveNewItem = () => {
-    if (!newItem.service.trim() || !newItem.price || isNaN(newItem.price) || parseFloat(newItem.price) <= 0) {
+  const handleSaveNewItem = async () => {
+    if (
+      !newItem.service.trim() ||
+      !newItem.price ||
+      isNaN(newItem.price) ||
+      parseFloat(newItem.price) <= 0
+    ) {
       toast.error("Please enter valid service name and price");
       return;
     }
 
-    const newItemData = {
-      id: Date.now(),
-      service: newItem.service.trim(),
-      price: parseFloat(newItem.price),
-      lastUpdated: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    };
-
-    setPricingData(prev => [...prev, newItemData]);
-    setNewItem({ service: "", price: "" });
-    setShowAddModal(false);
-    toast.success("New service added successfully!");
+    try {
+      await addService({
+        name: newItem.service.trim(),
+        price: parseFloat(newItem.price),
+      });
+      toast.success("New service added successfully!");
+      setNewItem({ service: "", price: "" });
+      setShowAddModal(false);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to add service";
+      toast.error(message);
+    }
   };
 
   const handleCancelAdd = () => {
     setNewItem({ service: "", price: "" });
     setShowAddModal(false);
   };
+
+  if (error && !services?.length) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          Failed to load services: {error}
+          <button
+            onClick={() => {
+              clearError();
+              fetchServices();
+              fetchPriceHistory();
+            }}
+            className="ml-3 rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full mx-auto space-y-8 p-6">
@@ -174,7 +214,7 @@ function Pricing() {
               <h2 className="text-lg font-semibold text-gray-900">Item Pricing</h2>
             </div>
             <span className="rounded-full bg-[#C85344]/10 px-3 py-1 text-xs font-semibold text-[#C85344]">
-              {pricingData.length} items
+              {services?.length ?? 0} items
             </span>
           </div>
           <div className="max-h-[460px] overflow-y-auto pr-1">
@@ -188,12 +228,18 @@ function Pricing() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredPricingData.length > 0 ? (
+                {isLoadingServices ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                      Loading services...
+                    </td>
+                  </tr>
+                ) : filteredPricingData.length > 0 ? (
                   filteredPricingData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{item.service}</td>
+                    <tr key={item._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{item.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {editingId === item.id ? (
+                        {editingId === item._id ? (
                           <input
                             type="number"
                             value={editPrice}
@@ -207,15 +253,20 @@ function Pricing() {
                           `$${item.price}`
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{item.lastUpdated}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {item.updatedAt || item.createdAt
+                          ? format(new Date(item.updatedAt || item.createdAt), "dd MMM yyyy")
+                          : "-"}
+                      </td>
                       <td className="px-6 py-4 text-sm">
-                        {editingId === item.id ? (
+                        {editingId === item._id ? (
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleSave(item.id)}
-                              className="rounded-lg bg-[#C85344] px-3 py-1 text-sm font-semibold text-white transition hover:brightness-95"
+                              onClick={() => handleSave(item._id)}
+                              className="rounded-lg bg-[#C85344] px-3 py-1 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
+                              disabled={isUpdating}
                             >
-                              Save
+                              {isUpdating ? "Saving..." : "Save"}
                             </button>
                             <button
                               onClick={handleCancel}
@@ -227,7 +278,7 @@ function Pricing() {
                         ) : (
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleEdit(item)}
+                              onClick={() => handleEdit({ id: item._id, price: item.price })}
                               className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 text-blue-600 hover:bg-blue-50"
                             >
                               <HugeiconsIcon icon={Edit01Icon} />
@@ -263,7 +314,7 @@ function Pricing() {
               <h2 className="text-lg font-semibold text-gray-900">Recent Price Changes</h2>
             </div>
             <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-              Latest {priceChanges.length}
+              Latest {priceHistory?.length ?? 0}
             </span>
           </div>
           <div className="max-h-[460px] overflow-y-auto pr-1">
@@ -278,15 +329,35 @@ function Pricing() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {priceChanges.map((change) => (
-                  <tr key={change.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">{change.date}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{change.editedBy}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{change.service}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">${change.oldPrice}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">${change.newPrice}</td>
+                {isLoadingHistory ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      Loading history...
+                    </td>
                   </tr>
-                ))}
+                ) : priceHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      No price changes yet.
+                    </td>
+                  </tr>
+                ) : (
+                  priceHistory.map((change) => (
+                    <tr key={change._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        {change.changedAt ? format(new Date(change.changedAt), "dd MMM") : "-"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {change.changedBy?.slice(0, 6) || "Admin"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{change.serviceName}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">${change.oldPrice}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        ${change.newPrice}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -301,7 +372,7 @@ function Pricing() {
               Delete Item
             </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "{itemToDelete?.service}"? This action cannot be undone.
+              Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button
@@ -312,9 +383,10 @@ function Pricing() {
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-60"
+                disabled={isDeleting}
               >
-                Delete
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -336,7 +408,7 @@ function Pricing() {
                 <input
                   type="text"
                   value={newItem.service}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, service: e.target.value }))}
+                  onChange={(e) => setNewItem((prev) => ({ ...prev, service: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter service name"
                 />
@@ -348,7 +420,7 @@ function Pricing() {
                 <input
                   type="number"
                   value={newItem.price}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, price: e.target.value }))}
+                  onChange={(e) => setNewItem((prev) => ({ ...prev, price: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter price"
                   min="0"
@@ -365,9 +437,10 @@ function Pricing() {
               </button>
               <button
                 onClick={handleSaveNewItem}
-                className="px-4 py-2 text-sm bg-[#C85344] text-white rounded  transition-colors"
+                className="px-4 py-2 text-sm bg-[#C85344] text-white rounded transition-colors disabled:opacity-60"
+                disabled={isCreating}
               >
-                Add Service
+                {isCreating ? "Adding..." : "Add Service"}
               </button>
             </div>
           </div>

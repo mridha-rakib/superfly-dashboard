@@ -1,6 +1,14 @@
 // src/components/layout/Sidebar/SidebarItem.jsx
 import React from "react";
-import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
+import {
+  BadgeDollarSign,
+  CalendarCheck,
+  FileText,
+  LayoutDashboard,
+  Settings,
+  Users,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 const iconMap = {
   Dashboard: LayoutDashboard,
@@ -18,14 +26,20 @@ const SidebarItem = ({ item, isActive, onClick }) => {
   const inactiveClasses = "text-gray-700 hover:bg-[#C85344]/5 hover:text-[#C85344]";
 
   return (
-    <button
-      type="button"
+    <NavLink
+      to={item.path ?? item.href}
+      end={item.href === "/"}
+      className={({ isActive: navActive }) =>
+        [
+          baseClasses,
+          navActive || isActive ? activeClasses : inactiveClasses,
+        ].join(" ")
+      }
       onClick={onClick}
-      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
     >
       <Icon className={`h-5 w-5 ${isActive ? "text-[#C85344]" : "text-gray-500"}`} />
       <span className="truncate">{item.label}</span>
-    </button>
+    </NavLink>
   );
 };
 

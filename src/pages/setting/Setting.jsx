@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import avatar1 from "../../assets/images/avatar1.jpg";
+
 function Setting() {
   const [user, setUser] = useState({
     name: "John Doe",
@@ -39,109 +40,121 @@ function Setting() {
   };
 
   return (
-    <div className="">
-      {/* Avatar + Name */}
-      <div className="flex flex-col items-center mb-10">
-        <div className="relative">
-          <img
-            src={avatarPreview}
-            alt="Avatar"
-            className="w-24 h-24 rounded-full mb-4 object-cover border border-gray-300"
-          />
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-100 bg-gradient-to-r from-[#fff5f3] via-white to-[#fff7f5] p-6 shadow-sm">
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+          <div className="relative">
+            <img
+              src={avatarPreview}
+              alt="Avatar"
+              className="h-24 w-24 rounded-full border-2 border-white object-cover shadow-sm"
+            />
+            {isEditing && (
+              <label className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#C85344] text-white shadow-md transition hover:brightness-95">
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                ✎
+              </label>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Profile</p>
+            <h1 className="text-2xl font-bold text-gray-900">{isEditing ? tempUser.name : user.name}</h1>
+            <p className="text-sm text-gray-500">{user.email}</p>
+          </div>
+          <div className="flex flex-1 justify-end">
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[#C85344]">Account</p>
+            <h2 className="text-lg font-semibold text-gray-900">Profile Details</h2>
+          </div>
           {isEditing && (
-            <label className="absolute bottom-0 right-0 bg-[#C85344] text-white p-1 rounded-full cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
-              ✎
-            </label>
+            <span className="rounded-full bg-[#C85344]/10 px-3 py-1 text-xs font-semibold text-[#C85344]">
+              Edit Mode
+            </span>
           )}
         </div>
 
-        <h1 className="text-2xl font-bold mb-4">{isEditing ? tempUser.name : user.name}</h1>
+        <div className="grid gap-4 p-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Name</label>
+            <input
+              type="text"
+              value={isEditing ? tempUser.name : user.name}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("name", e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20 ${
+                isEditing ? "border-gray-300 bg-white" : "border-transparent bg-gray-100 text-gray-600"
+              }`}
+            />
+          </div>
 
-        {!isEditing && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="bg-[#C85344] text-white px-5 py-2 rounded hover:bg-[#b84335] transition"
-          >
-            Edit Profile
-          </button>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Email</label>
+            <input
+              type="email"
+              value={user.email}
+              disabled
+              className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Phone</label>
+            <input
+              type="tel"
+              value={isEditing ? tempUser.phone : user.phone}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("phone", e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20 ${
+                isEditing ? "border-gray-300 bg-white" : "border-transparent bg-gray-100 text-gray-600"
+              }`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Address</label>
+            <input
+              type="text"
+              value={isEditing ? tempUser.address : user.address}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("address", e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20 ${
+                isEditing ? "border-gray-300 bg-white" : "border-transparent bg-gray-100 text-gray-600"
+              }`}
+            />
+          </div>
+        </div>
+
+        {isEditing && (
+          <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
+            <button
+              onClick={handleCancel}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+            >
+              Save Changes
+            </button>
+          </div>
         )}
       </div>
-
-      {/* User Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="flex flex-col">
-          <label className="mb-1 font-medium">Name</label>
-          <input
-            type="text"
-            value={isEditing ? tempUser.name : user.name}
-            disabled={!isEditing}
-            onChange={(e) => handleChange("name", e.target.value)}
-            className={`p-2 border rounded ${
-              isEditing ? "border-gray-300" : "border-transparent bg-gray-100"
-            }`}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="mb-1 font-medium">Email</label>
-          <input
-            type="email"
-            value={user.email}
-            disabled
-            className="p-2 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="mb-1 font-medium">Phone</label>
-          <input
-            type="tel"
-            value={isEditing ? tempUser.phone : user.phone}
-            disabled={!isEditing}
-            onChange={(e) => handleChange("phone", e.target.value)}
-            className={`p-2 border rounded ${
-              isEditing ? "border-gray-300" : "border-transparent bg-gray-100"
-            }`}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="mb-1 font-medium">Address</label>
-          <input
-            type="text"
-            value={isEditing ? tempUser.address : user.address}
-            disabled={!isEditing}
-            onChange={(e) => handleChange("address", e.target.value)}
-            className={`p-2 border rounded ${
-              isEditing ? "border-gray-300" : "border-transparent bg-gray-100"
-            }`}
-          />
-        </div>
-      </div>
-
-      {/* Save / Cancel Buttons at the Bottom */}
-      {isEditing && (
-        <div className="flex justify-center gap-4 mt-8">
-          <button
-            onClick={handleSave}
-            className="bg-[#C85344] text-white px-5 py-2 rounded hover:bg-[#b84335] transition"
-          >
-            Save
-          </button>
-          <button
-            onClick={handleCancel}
-            className="bg-gray-300 text-gray-700 px-5 py-2 rounded hover:bg-gray-400 transition"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,18 +2,16 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Menu, X } from "lucide-react";
-import { useDispatch } from "react-redux";
 import { sidebarLinks } from "../../data/dashboardData";
-import { useLogoutMutation } from "../../store/features/api/apiSlice";
-import { logout } from "../../store/features/auth/authSlice";
 import SidebarItem from "./SidebarItem";
+import { useAuthStore } from "../../state/authStore";
+import { toast } from "react-toastify";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
-  const [logoutApi] = useLogoutMutation();
   const [isOpen, setIsOpen] = useState(false);
+  const { logout } = useAuthStore();
 
   const allMenuItems = sidebarLinks.map((link) => ({
     label: link.label,
@@ -32,15 +30,14 @@ const Sidebar = () => {
 
   const handleSignOut = async () => {
     try {
-      await logoutApi().unwrap();
+      await logout();
+      toast.success("You have been signed out");
     } catch (error) {
-      console.error("Logout API failed:", error);
-    } finally {
-      // Clear Redux state and localStorage regardless of API result
-      dispatch(logout());
-      navigate("/login", { replace: true });
-      if (window.innerWidth < 768) setIsOpen(false);
+      toast.error("Sign out failed. Please try again.");
     }
+
+    navigate("/login", { replace: true });
+    if (window.innerWidth < 768) setIsOpen(false);
   };
 
   return (

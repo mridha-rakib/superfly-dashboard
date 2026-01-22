@@ -1,9 +1,20 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useAuthStore } from "../../state/authStore";
 
 function Login() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
+  const {
+    login,
+    status,
+    error: authError,
+    isAuthenticated,
+    clearError,
+  } = useAuthStore();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -17,15 +28,41 @@ function Login() {
       [e.target.name]: e.target.value,
     });
     if (error) setError("");
+    if (authError) clearError();
   };
 
   const handleSubmit = async (e) => {
-    navigate("/");
     e.preventDefault();
-    setIsLoading(true);
-   
-    setIsLoading(false);
+    setIsSubmitting(true);
+    setError("");
+
+    const result = await login(formData);
+
+    if (result.success) {
+      const redirectPath =
+        location.state?.from && location.state.from !== "/login"
+          ? location.state.from
+          : "/";
+
+      toast.success("Logged in successfully");
+      navigate(redirectPath, { replace: true });
+    } else {
+      setError(result.error || "Unable to log in. Please try again.");
+    }
+
+    setIsSubmitting(false);
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const isLoading = useMemo(
+    () => status === "loading" || isSubmitting,
+    [status, isSubmitting]
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -50,6 +87,11 @@ function Login() {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
                 {error}
+              </div>
+            )}
+            {!error && authError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                {authError}
               </div>
             )}
 

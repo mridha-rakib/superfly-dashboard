@@ -1,129 +1,207 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import Table from "../../components/ui/Table";
-import Button from "../../components/ui/Button";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ViewIcon, Edit01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
-import { usersDummyData } from "../../constants/usersDummyData";
+import { Edit01Icon, Delete02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import { Sparkles, UserPlus } from "lucide-react";
+import Table from "../../components/ui/Table";
+import { useCleanerStore } from "../../state/cleanerStore";
 
 function Users() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Pagination & Filters
   const [page, setPage] = useState(parseInt(searchParams.get("page")) || 1);
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [role, setRole] = useState(searchParams.get("role") || "All");
-
-  const perPage = 8;
-  const filteredData = usersDummyData.filter((user) =>
-    (role === "All" || user.role === role) &&
-    user.name.toLowerCase().includes(search.toLowerCase())
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") || "All"
   );
 
-  const totalItems = filteredData.length;
-  const totalPages = Math.ceil(totalItems / perPage);
-  const paginatedData = filteredData.slice((page - 1) * perPage, page * perPage);
+  const perPage = 8;
 
-  // Update URL when filtering/searching
+  const {
+    cleaners,
+    pagination,
+    isLoadingList,
+    isDeleting,
+    error,
+    fetchCleaners,
+    deleteCleaner,
+    clearError,
+  } = useCleanerStore();
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (page > 1) params.set("page", page.toString());
     if (search) params.set("search", search);
-    if (role !== "All") params.set("role", role);
+    if (statusFilter && statusFilter !== "All") {
+      params.set("status", statusFilter);
+    }
     setSearchParams(params, { replace: true });
-  }, [page, search, role, setSearchParams]);
+  }, [page, search, statusFilter, setSearchParams]);
 
-  // Table fields & headers
-  const fields = ["name", "contact", "role", "jobCompleted", "rating"];
-  const head = ["Name", "Contact", "Role", "Jobs Completed", "Rating"];
+  useEffect(() => {
+    fetchCleaners({
+      page,
+      limit: perPage,
+      search: search || undefined,
+      status: statusFilter === "All" ? undefined : statusFilter,
+    }).catch(() => {});
+  }, [page, perPage, search, statusFilter, fetchCleaners]);
 
-  // Color scheme for roles
-  const colorScheme = {
-    Cleaner: { bg: "bg-blue-100", text: "text-blue-800", dot: "bg-blue-500" },
-    Admin: { bg: "bg-green-100", text: "text-green-800", dot: "bg-green-500" },
-    Staff: { bg: "bg-yellow-100", text: "text-yellow-800", dot: "bg-yellow-500" },
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const totalItems =
+    pagination?.totalItems ??
+    pagination?.total ??
+    pagination?.items?.length ??
+    cleaners.length;
+  const totalPages =
+    pagination?.totalPages ||
+    pagination?.pageCount ||
+    Math.max(1, Math.ceil((totalItems || 0) / perPage));
+
+  const fields = ["fullName", "email", "phone", "accountStatus", "cleanerPercentage"];
+  const head = ["Name", "Email", "Contact", "Status", "Split %"];
+
+  const statusColors = {
+    active: { bg: "bg-green-100", text: "text-green-800", dot: "bg-green-500" },
+    pending: { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-500" },
+    inactive: { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" },
+    suspended: { bg: "bg-red-100", text: "text-red-800", dot: "bg-red-500" },
   };
 
-  // Actions
   const actions = [
     {
       key: "view",
       label: "View",
       icon: ViewIcon,
-      onClick: (item) => navigate(`/users/${item.id}`),
-      className: "p-1.5 text-purple-500 hover:bg-purple-50 rounded-full border border-purple-200",
+      onClick: (item) => navigate(`/users/${item._id}`),
+      className:
+        "p-1.5 text-purple-500 hover:bg-purple-50 rounded-full border border-purple-200",
     },
     {
       key: "edit",
       label: "Edit",
       icon: Edit01Icon,
-      onClick: (item) => navigate(`/users/${item.id}/edit`),
-      className: "p-1.5 text-blue-500 hover:bg-blue-50 rounded-full border border-blue-200",
+      onClick: (item) => navigate(`/users/${item._id}/edit`),
+      className:
+        "p-1.5 text-blue-500 hover:bg-blue-50 rounded-full border border-blue-200",
     },
     {
       key: "delete",
       label: "Delete",
       icon: Delete02Icon,
-      onClick: (item, confirmDelete) => {
-        if (window.confirm(`Are you sure you want to delete ${item.name}?`)) {
-          toast.success(`${item.name} deleted!`);
-        }
-      },
-      className: "p-1.5 text-red-500 hover:bg-red-50 rounded-full border border-red-200",
+      onClick: (item) => item,
+      className:
+        "p-1.5 text-red-500 hover:bg-red-50 rounded-full border border-red-200",
     },
   ];
 
-  // Format dataset for table
-  const dataset = paginatedData.map((user) => ({
-    ...user,
-    jobCompleted: user.role === "Cleaner" ? user.jobCompleted : "-",
-    rating: user.role === "Cleaner" ? user.rating : "-",
+  const dataset = cleaners.map((cleaner) => ({
+    ...cleaner,
+    phone: cleaner.phone || cleaner.phoneNumber || "-",
+    cleanerPercentage:
+      cleaner.cleanerPercentage !== undefined
+        ? `${cleaner.cleanerPercentage}%`
+        : "-",
   }));
 
-  // Filters
   const filters = [
     {
-      key: "role",
-      label: "Role",
+      key: "status",
+      label: "Status",
       options: [
-        { value: "All", label: "All Roles" },
-        { value: "Cleaner", label: "Cleaner" },
-        { value: "Admin", label: "Admin" },
-        { value: "Staff", label: "Staff" },
+        { label: "All", value: "All" },
+        { label: "Active", value: "active" },
+        { label: "Pending", value: "pending" },
+        { label: "Inactive", value: "inactive" },
+        { label: "Suspended", value: "suspended" },
       ],
     },
   ];
 
-  const handleFilterChange = (key, value) => {
-    if (key === "role") {
-      setRole(value);
-      setPage(1);
+  const handleDelete = async (item) => {
+    try {
+      await deleteCleaner(item._id);
+      toast.success("Cleaner deleted successfully");
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to delete cleaner. Please try again.";
+      toast.error(message);
+    } finally {
+      clearError();
     }
   };
 
   return (
-    <div className="w-full mx-auto">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#C85344]">
+              <Sparkles className="h-4 w-4 text-[#C85344]" /> Cleaners
+            </p>
+            <h2 className="text-2xl font-semibold text-gray-900">Team Directory</h2>
+            <p className="text-sm text-gray-500">
+              Search, view, and manage your cleaning team.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <button
+              onClick={() => navigate("/users/add")}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add Cleaner
+            </button>
+          </div>
+        </div>
+      </div>
+
       <Table
-        title="Users"
+        title="Cleaners"
         head={head}
         fields={fields}
         dataset={dataset}
-        showCreateButton={true}
-        createButtonText="Add User"
-        onCreateClick={() => navigate("/users/add")}
-        filters={filters}
-        filterValues={{ role }}
-        onFilterChange={handleFilterChange}
-        pagination={{ currentPage: page, totalPages, total: totalItems }}
-        onPageChange={setPage}
-        onSearchChange={setSearch}
-        actions={actions}
-        colorScheme={colorScheme}
-        onConfirmDelete={async (item) => {
-          toast.info(`Simulate delete for ${item.name}`);
+        showCreateButton={false}
+        hideSearch={false}
+        pagination={{
+          currentPage: pagination.currentPage || page,
+          totalPages: totalPages || 1,
+          total: totalItems,
+          itemsPerPage: perPage,
         }}
+        onPageChange={(nextPage) => setPage(nextPage || 1)}
+        onSearchChange={(value) => {
+          setPage(1);
+          setSearch(value);
+        }}
+        searchQuery={search}
+        filters={filters}
+        filterValues={{ status: statusFilter }}
+        onFilterChange={(key, value) => {
+          if (key === "status") {
+            setStatusFilter(value);
+            setPage(1);
+          }
+        }}
+        actions={actions}
+        colorScheme={statusColors}
+        onConfirmDelete={handleDelete}
+        customTitle={
+          isLoadingList ? (
+            <div className="h-10 w-40 animate-pulse rounded-lg bg-gray-200" />
+          ) : null
+        }
       />
+      {isDeleting && (
+        <p className="text-sm text-gray-500">Deleting cleaner...</p>
+      )}
     </div>
   );
 }

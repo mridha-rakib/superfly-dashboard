@@ -6,9 +6,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { NotificationProvider } from "./contexts/NotificationContext";
-
 import DashboardLayout from "./layout/DashboardLayout/DashboardLayout";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicRoute from "./routes/PublicRoute";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -32,16 +32,59 @@ import Setting from "./pages/setting/Setting";
 function App() {
   return (
     <Router>
+      {/* If NotificationProvider is reinstated later, wrap Routes with it */}
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-code" element={<VerifyCode />} />
-        <Route path="/set-new-password" element={<SetNewPassword />} />
-        <Route path="/successful" element={<Successful />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPassword />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/verify-code"
+          element={
+            <PublicRoute>
+              <VerifyCode />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/set-new-password"
+          element={
+            <PublicRoute>
+              <SetNewPassword />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/successful"
+          element={
+            <PublicRoute>
+              <Successful />
+            </PublicRoute>
+          }
+        />
 
         {/* Private Routes */}
-        <Route path="/" element={<DashboardLayout />}>
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="bookings" element={<Booking />} />
           <Route path="bookings/add" element={<CreateBooking />} />
@@ -56,6 +99,8 @@ function App() {
           <Route path="job-details" element={<JobReportDetails />} />
           <Route path="settings" element={<Setting />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

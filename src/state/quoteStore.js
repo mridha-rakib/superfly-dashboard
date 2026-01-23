@@ -23,6 +23,7 @@ const initialState = {
   selectedQuote: null,
   isLoading: false,
   isDeleting: false,
+  isAssigning: false,
   isLoadingDetail: false,
   error: null,
 };
@@ -79,6 +80,48 @@ export const useQuoteStore = create((set, get) => ({
   },
 
   clearSelected: () => set({ selectedQuote: null }),
+
+  assignCleaner: async (id, payload) => {
+    set({ isAssigning: true, error: null });
+    try {
+      const updatedRaw = await quoteApi.assignCleaners(id, payload);
+      const updated =
+        (updatedRaw && updatedRaw.data) || updatedRaw || {};
+      set((state) => {
+        const targetId = String(id);
+        const normalizeQuote = (quote) => {
+          if (!quote) return quote;
+          const quoteId = String(quote._id || quote.id || "");
+          if (!quoteId || quoteId !== targetId) return quote;
+          const assignedCleanerId =
+            updated.assignedCleanerId ||
+            updated.assignedCleanerIds?.[0] ||
+            quote.assignedCleanerId ||
+            quote.assignedCleanerIds?.[0];
+          const assignedCleanerIds =
+            updated.assignedCleanerIds ||
+            (assignedCleanerId ? [assignedCleanerId] : quote.assignedCleanerIds);
+
+          return {
+            ...quote,
+            ...updated,
+            assignedCleanerId,
+            assignedCleanerIds,
+          };
+        };
+
+        return {
+          quotes: (state.quotes || []).map(normalizeQuote),
+          selectedQuote: normalizeQuote(state.selectedQuote),
+          isAssigning: false,
+        };
+      });
+      return updated;
+    } catch (error) {
+      set({ isAssigning: false, error: parseError(error) });
+      throw error;
+    }
+  },
 
   deleteQuote: async (id) => {
     set({ isDeleting: true, error: null });

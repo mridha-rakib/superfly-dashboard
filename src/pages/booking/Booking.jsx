@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Edit3, Eye, Trash2, UserPlus, ChevronDown, Building2 } from "lucide-react";
+import { Edit3, Eye, Trash2, UserPlus, ChevronDown, Building2, Loader2, Search } from "lucide-react";
 import { useQuoteStore } from "../../state/quoteStore";
+import { useCleanerStore } from "../../state/cleanerStore";
 
 const statusStyles = {
   Ongoing: "bg-orange-50 text-orange-700 border-orange-200",
@@ -75,18 +76,38 @@ function Booking() {
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1", 10));
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [selectedCleanerId, setSelectedCleanerId] = useState("");
+  const [cleanerSearch, setCleanerSearch] = useState("");
 
   const perPage = 8;
   const {
     quotes,
     pagination,
     isLoading,
+    isAssigning,
     isDeleting,
     error,
     fetchQuotes,
+    assignCleaner,
     deleteQuote,
     clearError,
   } = useQuoteStore();
+  const {
+    cleaners,
+    isLoadingList: isLoadingCleaners,
+    error: cleanerError,
+    fetchCleaners,
+    clearError: clearCleanerError,
+  } = useCleanerStore();
+  const cleanerMap = useMemo(() => {
+    const map = new Map();
+    (cleaners || []).forEach((c) => {
+      const id = c._id || c.id;
+      if (id) map.set(String(id), c);
+    });
+    return map;
+  }, [cleaners]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -111,6 +132,44 @@ function Booking() {
     return () => clearError();
   }, [page, perPage, search, status, service, fetchQuotes, clearError]);
 
+  useEffect(() => {
+    // Load cleaners once so names are available after refresh
+    if (!cleaners || cleaners.length === 0) {
+      fetchCleaners({ limit: 100 }).catch(() => {});
+    }
+  }, [cleaners, fetchCleaners]);
+
+  useEffect(() => {
+    if (!assignTarget) return;
+    if (cleaners && cleaners.length > 0) return;
+    fetchCleaners({ limit: 100 }).catch(() => {
+      toast.error("Failed to load cleaners.");
+    });
+  }, [assignTarget, cleaners.length, fetchCleaners]);
+
+  useEffect(() => {
+    const hasAssigned = (quotes || []).some(
+      (q) =>
+        q.assignedCleanerId ||
+        (q.assignedCleanerIds && q.assignedCleanerIds.length > 0)
+    );
+    if (!hasAssigned) return;
+    if (cleaners && cleaners.length > 0) return;
+    fetchCleaners({ limit: 100 }).catch(() => {
+      toast.error("Failed to load cleaners.");
+    });
+  }, [quotes, cleaners.length, fetchCleaners]);
+
+  useEffect(() => {
+    if (cleanerError) {
+      toast.error(cleanerError);
+    }
+  }, [cleanerError]);
+
+  useEffect(() => {
+    return () => clearCleanerError();
+  }, [clearCleanerError]);
+
   const filtered = useMemo(() => {
     return (quotes || [])
       .map((q) => {
@@ -123,17 +182,28 @@ function Booking() {
           [q.firstName, q.lastName].filter(Boolean).join(" ") ||
           "Client";
         const assignedCount = (q.assignedCleanerIds && q.assignedCleanerIds.length) || 0;
-        const assigned =
-          assignedCount > 1
-            ? `${assignedCount} cleaners`
-            : assignedCount === 1 || q.assignedCleanerId
-            ? "1 cleaner"
-            : "";
+        const primaryCleanerId =
+          q.assignedCleanerId ||
+          (q.assignedCleanerIds && q.assignedCleanerIds[0]);
+        const primaryCleaner =
+          primaryCleanerId && cleanerMap.get(String(primaryCleanerId));
+        const assignedName =
+          primaryCleaner?.fullName ||
+          "";
+        const assigned = assignedName
+          ? assignedName
+          : assignedCount > 1
+          ? `${assignedCount} cleaners`
+          : assignedCount === 1 || q.assignedCleanerId
+          ? "1 cleaner"
+          : "";
 
         return {
           id: q._id || q.id,
           status: displayStatus,
           rawStatus: q.status,
+          assignedCleanerId: q.assignedCleanerId,
+          assignedCleanerIds: q.assignedCleanerIds,
           serviceLabel,
           paymentStatus,
           customerInfo: {
@@ -174,6 +244,16 @@ function Booking() {
       });
   }, [quotes, status, service, payment, search]);
 
+  const filteredCleaners = useMemo(() => {
+    if (!cleanerSearch.trim()) return cleaners || [];
+    const term = cleanerSearch.toLowerCase();
+    return (cleaners || []).filter(
+      (c) =>
+        (c.fullName || "").toLowerCase().includes(term) ||
+        (c.email || "").toLowerCase().includes(term)
+    );
+  }, [cleaners, cleanerSearch]);
+
   const totalPages =
     pagination?.totalPages || Math.max(1, Math.ceil(filtered.length / perPage));
   const currentPage = Math.min(page, totalPages);
@@ -191,8 +271,51 @@ function Booking() {
     navigate(`/bookings/add?type=${encodeURIComponent(type)}`);
   };
 
+  const closeAssignModal = () => {
+    setAssignTarget(null);
+    setSelectedCleanerId("");
+    setCleanerSearch("");
+  };
+
   const handleAssignCleaner = (booking) => {
-    toast.info(`Open cleaner assignment for ${booking.id}`);
+    const isResidential = (booking.cleaningDetails?.serviceType || "")
+      .toLowerCase()
+      .includes("residential");
+    if (!isResidential) {
+      toast.info("Cleaner assignment is available for residential bookings only.");
+      return;
+    }
+    const existing =
+      booking.assignedCleanerId ||
+      (booking.assignedCleanerIds && booking.assignedCleanerIds[0]) ||
+      "";
+    setAssignTarget(booking);
+    setSelectedCleanerId(existing);
+    setCleanerSearch("");
+  };
+
+  const handleConfirmAssign = async () => {
+    if (!assignTarget) return;
+    if (!selectedCleanerId) {
+      toast.error("Select a cleaner to assign.");
+      return;
+    }
+    try {
+      await assignCleaner(assignTarget.id, { cleanerId: selectedCleanerId });
+      // Refresh names/data to avoid stale UI and ensure persistence
+      fetchCleaners({ limit: 100 }).catch(() => {});
+      fetchQuotes({
+        page,
+        limit: perPage,
+        search: search || undefined,
+        status: toApiStatus(status),
+        serviceType: toApiServiceType(service),
+      }).catch(() => {});
+      toast.success("Cleaner assigned successfully.");
+      closeAssignModal();
+    } catch (err) {
+      toast.error(err?.message || "Failed to assign cleaner.");
+    }
   };
 
   const handleDelete = async (quoteId) => {
@@ -214,6 +337,125 @@ function Booking() {
 
   return (
     <div className="space-y-6">
+      {assignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#C85344]">
+                  Residential Booking
+                </p>
+                <h3 className="text-lg font-semibold text-gray-900">Assign Cleaner</h3>
+                <p className="text-sm text-gray-500">
+                  Select a cleaner for booking {assignTarget.id}. Existing assignment will be replaced.
+                </p>
+              </div>
+              <button
+                onClick={closeAssignModal}
+                className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-4">
+              <div className="grid gap-3 text-sm text-gray-700 sm:grid-cols-2">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase text-gray-500">Booking ID</div>
+                  <div className="font-semibold text-gray-900">{assignTarget.id}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <div className="text-[11px] uppercase text-gray-500">Schedule</div>
+                  <div className="font-semibold text-gray-900">
+                    {formatDateTime(
+                      assignTarget.scheduling?.preferredDate,
+                      assignTarget.scheduling?.startTime
+                    ) || "-"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200">
+                <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <input
+                    value={cleanerSearch}
+                    onChange={(e) => setCleanerSearch(e.target.value)}
+                    placeholder="Search cleaners by name or email"
+                    className="flex-1 bg-transparent text-sm focus:outline-none"
+                  />
+                  <span className="text-xs text-gray-500">
+                    {(cleaners || []).length} total
+                  </span>
+                </div>
+                <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                  {isLoadingCleaners ? (
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin text-[#C85344]" />
+                      Loading cleaners...
+                    </div>
+                  ) : filteredCleaners.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">No cleaners match that search.</div>
+                  ) : (
+                    filteredCleaners.map((cleaner) => {
+                      const id = cleaner._id || cleaner.id;
+                      return (
+                        <label
+                          key={id}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+                        >
+                          <input
+                            type="radio"
+                            name="selectedCleaner"
+                            value={id}
+                            checked={selectedCleanerId === id}
+                            onChange={() => setSelectedCleanerId(id)}
+                            className="h-4 w-4 accent-[#C85344]"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-gray-900">
+                              {cleaner.fullName || "Cleaner"}
+                            </span>
+                            <span className="text-xs text-gray-500">{cleaner.email}</span>
+                          </div>
+                          {typeof cleaner.cleanerPercentage === "number" && (
+                            <span className="ml-auto rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]">
+                              {cleaner.cleanerPercentage}% split
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-gray-500">
+                Residential bookings allow only one cleaner. The previous assignment will be overwritten.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={closeAssignModal}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAssign}
+                  disabled={!selectedCleanerId || isAssigning}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-70"
+                >
+                  {isAssigning && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Assign Cleaner
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Bookings</h2>
@@ -336,6 +578,11 @@ function Booking() {
             Deleting booking...
           </div>
         )}
+        {isAssigning && (
+          <div className="px-6 py-3 text-sm text-gray-500 border-b border-gray-100">
+            Assigning cleaner...
+          </div>
+        )}
         <div className="hidden lg:block">
           <table className="min-w-full text-sm">
             <thead className="bg-[#FFF6F3] text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -375,10 +622,18 @@ function Booking() {
                     </td>
                     <td className="px-6 py-4">
                       {b.scheduling?.assignedCleaner ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <div className="font-semibold text-gray-900">{b.scheduling.assignedCleaner}</div>
                           {isResidential && (
-                            <div className="text-xs text-[#C85344]">Single cleaner enforced</div>
+                            <div className="flex items-center gap-2 text-xs text-[#C85344]">
+                              <span>Single cleaner enforced</span>
+                              <button
+                                onClick={() => handleAssignCleaner(b)}
+                                className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344] hover:bg-[#C85344]/5"
+                              >
+                                Change
+                              </button>
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -489,9 +744,26 @@ function Booking() {
                       {b.scheduling?.assignedCleaner || "Unassigned"}
                     </div>
                     {isResidential && b.scheduling?.assignedCleaner && (
-                      <span className="text-[10px] text-[#C85344]">Single cleaner enforced</span>
+                      <button
+                        onClick={() => handleAssignCleaner(b)}
+                        className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]"
+                      >
+                        Change
+                      </button>
                     )}
                   </div>
+                  {!b.scheduling?.assignedCleaner && (
+                    <button
+                      onClick={() => handleAssignCleaner(b)}
+                      className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344]"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Assign Cleaner
+                    </button>
+                  )}
+                  {isResidential && b.scheduling?.assignedCleaner && (
+                    <span className="text-[10px] text-[#C85344]">Single cleaner enforced</span>
+                  )}
                   <div
                     className={`inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-semibold ${
                       paymentStyles[paymentStatus] || "bg-gray-50 text-gray-700 border-gray-200"

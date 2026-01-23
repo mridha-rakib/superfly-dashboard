@@ -18,7 +18,8 @@ export const quoteApi = {
       `/quotes/${quoteId}/assign-cleaner`,
       payload
     );
-    return unwrap(response);
+    // API returns { data: quote, message: string }
+    return response?.data?.data ?? unwrap(response);
   },
 
   updateStatus: async (quoteId, payload) => {

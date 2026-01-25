@@ -1,11 +1,13 @@
 import { Filter, PieChart, Users as UsersIcon, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
 import { useCleanerStore } from "../../state/cleanerStore";
+import { quoteApi } from "../../services/quoteApi";
 
 const cardClass =
-  "bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6";7
+  "bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6";
 const labelClass = "text-sm font-semibold text-gray-800 mb-2";
 const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#C85344] focus:ring-2 focus:ring-[#C85344]/20 transition";
@@ -13,6 +15,7 @@ const sectionTitle = "text-xl font-semibold text-gray-900";
 const hintClass = "text-xs text-gray-500";
 
 const CreateBooking = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     // 1. Customer Info
     businessName: "",
@@ -42,6 +45,8 @@ const CreateBooking = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [cleanerSearch, setCleanerSearch] = useState("");
 
   const {
@@ -94,25 +99,94 @@ const CreateBooking = () => {
     setErrors((prev) => ({ ...prev, assignedCleaners: null }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const nextErrors = {};
-    const price = Number(formData.cleanerPrice);
+    if (isSubmitting) return;
 
-    if (price > 0 && formData.assignedCleaners.length === 0) {
-      nextErrors.assignedCleaners =
-        "Assign at least one cleaner when a cleaner price is set.";
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      const missingFields = [];
+      if (!formData.businessName.trim()) missingFields.push("Business Name");
+      if (!formData.email.trim()) missingFields.push("Email");
+      if (!formData.phone.trim()) missingFields.push("Phone");
+      if (!formData.address.trim()) missingFields.push("Address");
+      if (!formData.preferredDate) missingFields.push("Preferred Date");
+      if (!formData.startTime) missingFields.push("Preferred Time");
+
+      if (missingFields.length) {
+        throw new Error(`Please fill: ${missingFields.join(", ")}`);
+      }
+
+      if (!formData.serviceType) {
+        throw new Error("Select a service type before submitting.");
+      }
+
+      if (
+        formData.serviceType !== "commercial" &&
+        formData.serviceType !== "post_construction"
+      ) {
+        throw new Error("Only Commercial and Post-Construction are supported.");
+      }
+
+      const businessAddress = [formData.address, formData.city]
+        .filter(Boolean)
+        .join(", ")
+        .trim();
+
+      const payload = {
+        serviceType: formData.serviceType,
+        name: formData.businessName,
+        companyName: formData.businessName,
+        email: formData.email,
+        phoneNumber: formData.phone,
+        businessAddress,
+        preferredDate: formData.preferredDate,
+        preferredTime: formData.startTime,
+        specialRequest: formData.jobNote?.trim() || "N/A",
+        squareFoot: formData.squareFoot,
+        totalPrice: Number(formData.totalPrice) || undefined,
+        cleanerPrice: Number(formData.cleanerPrice) || undefined,
+        assignedCleanerIds: formData.assignedCleaners,
+        cleaningFrequency: formData.cleaningFrequency,
+      };
+
+      payload.preferredDate = payload.preferredDate
+        ? new Date(payload.preferredDate).toISOString().slice(0, 10)
+        : "";
+      payload.totalPrice =
+        payload.totalPrice !== undefined && payload.totalPrice !== null
+          ? Number(payload.totalPrice)
+          : undefined;
+      payload.cleanerPrice =
+        payload.cleanerPrice !== undefined && payload.cleanerPrice !== null
+          ? Number(payload.cleanerPrice)
+          : undefined;
+      payload.squareFoot =
+        payload.squareFoot !== undefined && payload.squareFoot !== ""
+          ? Number(payload.squareFoot)
+          : undefined;
+
+      await quoteApi.createAdminServiceRequest(payload);
+
+      toast.success("Booking created");
+      navigate("/bookings");
+    } catch (err) {
+      const raw = err?.response?.data;
+      const msg =
+        Array.isArray(raw?.issues)
+          ? raw.issues.map((i) => i.message).join("; ")
+          : raw?.message ||
+            raw?.error ||
+            raw?.errorMessage ||
+            (typeof raw === "string" ? raw : null) ||
+            err?.message ||
+            "Failed to create booking.";
+      setSubmitError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (Object.keys(nextErrors).length) {
-      setErrors(nextErrors);
-      toast.error("Please fix the highlighted fields.");
-      return;
-    }
-
-    const payload = { ...formData };
-    console.log("Final Payload:", payload);
-    toast.success("Quote saved!");
   };
 
   const priceDistribution = splitCleanerPrice(
@@ -218,10 +292,8 @@ const CreateBooking = () => {
               className={inputClass}
             >
               <option value="">Select Service</option>
-              <option value="regular">Regular Cleaning</option>
-              <option value="deep">Deep Cleaning</option>
-              <option value="move-in">Move In Cleaning</option>
-              <option value="move-out">Move Out Cleaning</option>
+              <option value="commercial">Commercial Cleaning</option>
+              <option value="post_construction">Post-Construction Cleaning</option>
             </select>
           </div>
 
@@ -313,21 +385,6 @@ const CreateBooking = () => {
             />
           </div>
 
-          <div>
-            <label className={labelClass}>Assign Cleaner</label>
-            <select
-              name="assignedCleaner"
-              value={formData.assignedCleaner}
-              onChange={handleChange}
-              className={inputClass}
-            >
-              <option value="">Select Cleaner</option>
-              <option value="cleaner1">Cleaner 1</option>
-              <option value="cleaner2">Cleaner 2</option>
-              <option value="cleaner3">Cleaner 3</option>
-            </select>
-            <p className={hintClass}>Legacy single-cleaner field (unchanged).</p>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
@@ -386,7 +443,7 @@ const CreateBooking = () => {
               <p className="mt-2 text-sm text-red-600">{errors.assignedCleaners}</p>
             )}
             <p className={hintClass}>
-              Selected IDs will be sent as <code>assignedCleaners</code> in the payload.
+              Selected IDs will be sent as <code>assignedCleanerIds</code> in the payload.
             </p>
           </div>
 

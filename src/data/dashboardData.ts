@@ -30,6 +30,11 @@ export type BookingRow = {
 export const sidebarLinks: SidebarLink[] = [
   { label: "Dashboard", href: "/", icon: "LayoutDashboard" },
   { label: "Bookings", href: "/bookings", icon: "CalendarCheck" },
+  {
+    label: "Service Requests",
+    href: "/service-requests",
+    icon: "FileText",
+  },
   { label: "Cleaners", href: "/users", icon: "Users" },
   { label: "Pricing", href: "/pricing", icon: "BadgeDollarSign" },
   { label: "Job Reports", href: "/job-reports", icon: "FileText" },

@@ -34,4 +34,19 @@ export const quoteApi = {
     const response = await httpClient.delete(`/quotes/${quoteId}`);
     return unwrap(response);
   },
+
+  createAdminServiceRequest: async (payload) => {
+    const response = await httpClient.post("/quotes/admin/service-request", payload);
+    return unwrap(response);
+  },
+
+  createCommercial: async (payload) => {
+    const response = await httpClient.post("/quotes/commercial", payload);
+    return unwrap(response);
+  },
+
+  createPostConstruction: async (payload) => {
+    const response = await httpClient.post("/quotes/post-construction", payload);
+    return unwrap(response);
+  },
 };

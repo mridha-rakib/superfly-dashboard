@@ -1,10 +1,12 @@
 // src/components/layout/Topbar/Topbar.jsx
-import { Bell } from "lucide-react";
+import { Bell, Upload } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import "react-toastify/dist/ReactToastify.css";
 import userdummy from "../../assets/images/user-dummy.png";
 import { useAuthStore } from "../../state/authStore";
+import { userApi } from "../../services/userApi";
+import { toast } from "react-toastify";
 import {
   useMarkAllNotificationsAsReadMutation,
   useMarkNotificationAsReadMutation,
@@ -40,11 +42,14 @@ const Topbar = () => {
   const [markAllAsRead] = useMarkAllNotificationsAsReadMutation();
 
   const { user } = useAuthStore();
+  const setUser = useAuthStore((s) => s.setUser);
   const currentUser = {
     name: user?.fullName || user?.name || "User",
     role: user?.role === "super_admin" ? "Super Admin" : user?.role || "Admin",
     avatar: user?.profileImage || userdummy,
   };
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Notification API response -- rakib
   const notifications = [
@@ -190,12 +195,54 @@ const Topbar = () => {
               setIsNotificationOpen(false);
             }}
           >
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center text-white font-medium">
+            <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
               <img
-                src={userdummy}
+                src={currentUser.avatar || userdummy}
                 alt="User"
-                className="rounded-full object-cover h-full w-full"
+                className="h-full w-full object-cover"
               />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Change photo"
+                className="absolute bottom-0 right-0 m-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow hover:text-[#C85344]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setIsUploading(true);
+                  try {
+                    const updated = await userApi.uploadProfilePhoto(file);
+                    const profileImage =
+                      updated?.profileImage ||
+                      updated?.profileImageUrl ||
+                      updated?.avatar ||
+                      updated?.photoUrl;
+                    setUser({ ...(user || {}), ...updated, profileImage });
+                    toast.success("Profile photo updated");
+                  } catch (err) {
+                    toast.error(
+                      err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to upload photo"
+                    );
+                  } finally {
+                    setIsUploading(false);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              {isUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-[10px] font-semibold text-gray-700">
+                  Uploading...
+                </div>
+              )}
             </div>
             <div className="hidden md:block text-left">
               <p className="text-sm font-medium text-gray-900">

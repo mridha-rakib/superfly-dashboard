@@ -22,6 +22,18 @@ const parseError = (error) => {
   return apiMessage || "Unable to complete the request.";
 };
 
+const normalizeUser = (u) => {
+  if (!u) return null;
+  const profileImage =
+    u.profileImage ||
+    u.profileImageUrl ||
+    u.avatar ||
+    u.photoUrl ||
+    u.photo ||
+    null;
+  return { ...u, profileImage };
+};
+
 export const useAuthStore = create(
   persist(
     (set, _get) => ({
@@ -39,14 +51,15 @@ export const useAuthStore = create(
             throw new Error("Invalid login response from server.");
           }
 
-          const role = result.user.role;
+          const normalizedUser = normalizeUser(result.user);
+          const role = normalizedUser.role;
           const isAdmin = role === "admin" || role === "super_admin";
           if (!isAdmin) {
             throw new Error("Only admin users can access this dashboard.");
           }
 
           set({
-            user: result.user,
+            user: normalizedUser,
             accessToken: result.accessToken,
             isAuthenticated: true,
             status: "success",
@@ -82,12 +95,18 @@ export const useAuthStore = create(
       },
 
       fetchProfile: async () => {
-        const profile = await authApi.fetchProfile();
+        const profile = normalizeUser(await authApi.fetchProfile());
         if (profile) {
           set({ user: profile, isAuthenticated: true });
         }
         return profile;
       },
+
+      setUser: (user) =>
+        set({
+          user: normalizeUser(user),
+          isAuthenticated: Boolean(user),
+        }),
 
       logout: async () => {
         try {
@@ -126,4 +145,3 @@ configureHttpClient({
   refreshAccessTokenFn: () => useAuthStore.getState().refreshAccessToken(),
   onLogout: () => useAuthStore.getState().forceLogout(),
 });
-

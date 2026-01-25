@@ -1,36 +1,152 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import avatar1 from "../../assets/images/avatar1.jpg";
+import { userApi } from "../../services/userApi";
+import { useAuthStore } from "../../state/authStore";
 
 function Setting() {
-  const [user, setUser] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "123-456-7890",
-    address: "123 Main St, City, Country",
-    avatar: avatar1,
-  });
+  const authUser = useAuthStore((s) => s.user);
+  const setUserInStore = useAuthStore((s) => s.setUser);
+  const [user, setUser] = useState(() => ({
+    name: authUser?.fullName || authUser?.name || "User",
+    email: authUser?.email || "",
+    phone: authUser?.phoneNumber || authUser?.phone || "",
+    address: authUser?.address || "",
+    avatar:
+      authUser?.profileImage ||
+      authUser?.profileImageUrl ||
+      authUser?.avatar ||
+      avatar1,
+  }));
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempUser, setTempUser] = useState({ ...user });
   const [avatarPreview, setAvatarPreview] = useState(user.avatar);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      if (authUser && authUser.email) {
+        const merged = {
+          name: authUser.fullName || authUser.name || "User",
+          email: authUser.email || "",
+          phone: authUser.phoneNumber || authUser.phone || "",
+          address: authUser.address || "",
+          avatar:
+            authUser.profileImage ||
+            authUser.profileImageUrl ||
+            authUser.avatar ||
+            avatar1,
+        };
+        setUser(merged);
+        setTempUser(merged);
+        setAvatarPreview(merged.avatar);
+        return;
+      }
+      try {
+        const profile = await userApi.getProfile();
+        const merged = {
+          name: profile.fullName || profile.name || "User",
+          email: profile.email || "",
+          phone: profile.phoneNumber || profile.phone || "",
+          address: profile.address || "",
+          avatar:
+            profile.profileImage ||
+            profile.profileImageUrl ||
+            profile.avatar ||
+            avatar1,
+        };
+        setUser(merged);
+        setTempUser(merged);
+        setAvatarPreview(merged.avatar);
+        setUserInStore(profile);
+      } catch (err) {
+        toast.error(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Failed to load profile."
+        );
+      }
+    };
+    init();
+  }, [authUser, setUserInStore]);
 
   const handleChange = (field, value) => {
     setTempUser((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = () => setAvatarPreview(reader.result);
       reader.readAsDataURL(file);
-      setTempUser((prev) => ({ ...prev, avatar: file }));
+      try {
+        setIsUploading(true);
+        const updated = await userApi.uploadProfilePhoto(file);
+        const profileImage =
+          updated?.profileImage ||
+          updated?.profileImageUrl ||
+          updated?.avatar ||
+          avatarPreview;
+        const merged = {
+          ...tempUser,
+          avatar: profileImage,
+        };
+        setUser(merged);
+        setTempUser(merged);
+        setAvatarPreview(profileImage);
+        setUserInStore({ ...(authUser || {}), ...updated, profileImage });
+        toast.success("Profile photo updated");
+      } catch (err) {
+        toast.error(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Failed to upload photo."
+        );
+      } finally {
+        setIsUploading(false);
+        e.target.value = "";
+      }
     }
   };
 
-  const handleSave = () => {
-    setUser({ ...tempUser, avatar: avatarPreview });
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        fullName: tempUser.name,
+        phoneNumber: tempUser.phone,
+        address: tempUser.address,
+      };
+      const updated = await userApi.updateProfile(payload);
+      const merged = {
+        name: updated.fullName || updated.name || tempUser.name,
+        email: updated.email || tempUser.email,
+        phone: updated.phoneNumber || tempUser.phone,
+        address: updated.address || tempUser.address,
+        avatar:
+          updated.profileImage ||
+          updated.profileImageUrl ||
+          updated.avatar ||
+          avatarPreview,
+      };
+      setUser(merged);
+      setTempUser(merged);
+      setAvatarPreview(merged.avatar);
+      setUserInStore({ ...(authUser || {}), ...updated });
+      setIsEditing(false);
+      toast.success("Profile updated");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update profile."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -148,9 +264,10 @@ function Setting() {
             </button>
             <button
               onClick={handleSave}
-              className="rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+              disabled={isSaving}
+              className="rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-60"
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         )}

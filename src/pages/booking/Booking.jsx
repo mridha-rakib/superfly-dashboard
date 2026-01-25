@@ -6,10 +6,11 @@ import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
 
 const statusStyles = {
-  Ongoing: "bg-orange-50 text-orange-700 border-orange-200",
   Pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  "In Progress": "bg-blue-50 text-blue-700 border-blue-200",
-  Complete: "bg-green-50 text-green-700 border-green-200",
+  Assigned: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "On Site": "bg-orange-50 text-orange-700 border-orange-200",
+  "Report Submitted": "bg-purple-50 text-purple-700 border-purple-200",
+  Completed: "bg-green-50 text-green-700 border-green-200",
 };
 
 const paymentStyles = {
@@ -24,19 +25,18 @@ const formatDateTime = (date, time) => {
   return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${time || ""}`;
 };
 
-const mapStatusLabel = (status) => {
-  const normalized = (status || "").toLowerCase();
+const mapStatusLabel = (quote) => {
+  const admin = quote?.adminStatus;
+  const normalized = (admin || quote?.status || "").toLowerCase();
   switch (normalized) {
-    case "submitted":
-      return "Pending";
-    case "admin_notified":
-      return "Ongoing";
-    case "reviewed":
-    case "contacted":
-      return "In Progress";
-    case "paid":
+    case "assigned":
+      return "Assigned";
+    case "on_site":
+      return "On Site";
+    case "report_submitted":
+      return "Report Submitted";
     case "completed":
-      return "Complete";
+      return "Completed";
     default:
       return "Pending";
   }
@@ -50,12 +50,21 @@ const mapServiceLabel = (serviceType) => {
   return serviceType || "Unknown";
 };
 
+const formatPercent = (value) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Number.isInteger(value)
+    ? `${value}%`
+    : `${value.toFixed(2)}%`;
+};
+
 const toApiStatus = (filterStatus) => {
   const normalized = (filterStatus || "").toLowerCase();
-  if (normalized === "pending") return "submitted";
-  if (normalized === "ongoing") return "admin_notified";
-  if (normalized === "in progress") return "reviewed";
-  if (normalized === "complete") return "completed";
+  // adminStatus filters
+  if (normalized === "pending") return "pending";
+  if (normalized === "assigned") return "assigned";
+  if (normalized === "on site") return "on_site";
+  if (normalized === "report submitted") return "report_submitted";
+  if (normalized === "completed") return "completed";
   return undefined;
 };
 
@@ -77,7 +86,8 @@ function Booking() {
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1", 10));
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
-  const [selectedCleanerId, setSelectedCleanerId] = useState("");
+  const [selectedCleanerIds, setSelectedCleanerIds] = useState([]);
+  const [cleanerShare, setCleanerShare] = useState("");
   const [cleanerSearch, setCleanerSearch] = useState("");
 
   const perPage = 8;
@@ -173,7 +183,7 @@ function Booking() {
   const filtered = useMemo(() => {
     return (quotes || [])
       .map((q) => {
-        const displayStatus = mapStatusLabel(q.status);
+        const displayStatus = mapStatusLabel(q);
         const serviceLabel = mapServiceLabel(q.serviceType);
         const paymentStatus = q.paymentStatus === "paid" ? "Paid" : "Unpaid";
         const customerName =
@@ -181,27 +191,35 @@ function Booking() {
           q.contactName ||
           [q.firstName, q.lastName].filter(Boolean).join(" ") ||
           "Client";
-        const assignedCount = (q.assignedCleanerIds && q.assignedCleanerIds.length) || 0;
-        const primaryCleanerId =
-          q.assignedCleanerId ||
-          (q.assignedCleanerIds && q.assignedCleanerIds[0]);
-        const primaryCleaner =
-          primaryCleanerId && cleanerMap.get(String(primaryCleanerId));
-        const assignedName =
-          primaryCleaner?.fullName ||
-          "";
-        const assigned = assignedName
-          ? assignedName
-          : assignedCount > 1
-          ? `${assignedCount} cleaners`
-          : assignedCount === 1 || q.assignedCleanerId
-          ? "1 cleaner"
-          : "";
+        const assignedIds =
+          (q.assignedCleanerIds && q.assignedCleanerIds.length
+            ? q.assignedCleanerIds
+            : q.assignedCleanerId
+            ? [q.assignedCleanerId]
+            : []) || [];
+        const assignedCount = assignedIds.length;
+        const assignedNames = assignedIds
+          .map((id) => cleanerMap.get(String(id))?.fullName)
+          .filter(Boolean);
+        const assigned =
+          assignedNames.length > 0
+            ? assignedNames.slice(0, 2).join(", ") +
+              (assignedNames.length > 2
+                ? ` +${assignedNames.length - 2}`
+                : "")
+            : assignedCount > 1
+            ? `${assignedCount} cleaners`
+            : assignedCount === 1
+            ? "1 cleaner"
+            : "";
+        const sharePercentage =
+          q.cleanerSharePercentage ?? q.cleanerPercentage ?? null;
 
         return {
           id: q._id || q.id,
           status: displayStatus,
           rawStatus: q.status,
+          cleanerSharePercentage: sharePercentage,
           assignedCleanerId: q.assignedCleanerId,
           assignedCleanerIds: q.assignedCleanerIds,
           serviceLabel,
@@ -220,6 +238,7 @@ function Booking() {
             startTime: q.preferredTime,
             endTime: "",
             assignedCleaner: assigned,
+            assignedShare: sharePercentage,
           },
           pricing: {
             totalPrice: q.totalPrice,
@@ -254,6 +273,19 @@ function Booking() {
     );
   }, [cleaners, cleanerSearch]);
 
+  const parsedShare = cleanerShare === "" ? undefined : Number(cleanerShare);
+  const shareInvalid =
+    cleanerShare !== "" &&
+    (Number.isNaN(parsedShare) || parsedShare < 0 || parsedShare > 100);
+  const shareMissingForMulti =
+    selectedCleanerIds.length > 1 && parsedShare === undefined;
+  const perCleanerSplit =
+    parsedShare !== undefined && selectedCleanerIds.length > 0
+      ? parsedShare / selectedCleanerIds.length
+      : null;
+  const disableAssign =
+    !selectedCleanerIds.length || shareMissingForMulti || shareInvalid || isAssigning;
+
   const totalPages =
     pagination?.totalPages || Math.max(1, Math.ceil(filtered.length / perPage));
   const currentPage = Math.min(page, totalPages);
@@ -273,7 +305,8 @@ function Booking() {
 
   const closeAssignModal = () => {
     setAssignTarget(null);
-    setSelectedCleanerId("");
+    setSelectedCleanerIds([]);
+    setCleanerShare("");
     setCleanerSearch("");
   };
 
@@ -286,22 +319,64 @@ function Booking() {
       return;
     }
     const existing =
-      booking.assignedCleanerId ||
-      (booking.assignedCleanerIds && booking.assignedCleanerIds[0]) ||
-      "";
+      booking.assignedCleanerIds && booking.assignedCleanerIds.length
+        ? booking.assignedCleanerIds
+        : booking.assignedCleanerId
+          ? [booking.assignedCleanerId]
+          : [];
     setAssignTarget(booking);
-    setSelectedCleanerId(existing);
+    setSelectedCleanerIds(existing.map((id) => String(id)));
+    const prefilledShare =
+      booking.cleanerSharePercentage ?? booking.cleanerPercentage;
+    setCleanerShare(
+      prefilledShare !== undefined && prefilledShare !== null
+        ? String(prefilledShare)
+        : ""
+    );
     setCleanerSearch("");
   };
 
   const handleConfirmAssign = async () => {
     if (!assignTarget) return;
-    if (!selectedCleanerId) {
-      toast.error("Select a cleaner to assign.");
+    if (!selectedCleanerIds.length) {
+      toast.error("Select at least one cleaner to assign.");
+      return;
+    }
+    const shareValueForSubmit =
+      cleanerShare === "" ? undefined : Number(cleanerShare);
+    if (selectedCleanerIds.length > 1) {
+      if (
+        shareValueForSubmit === undefined ||
+        Number.isNaN(shareValueForSubmit) ||
+        shareValueForSubmit < 0 ||
+        shareValueForSubmit > 100
+      ) {
+        toast.error("Enter a share percentage between 0 and 100 for multiple cleaners.");
+        return;
+      }
+    } else if (
+      cleanerShare !== "" &&
+      (Number.isNaN(shareValueForSubmit) ||
+        shareValueForSubmit < 0 ||
+        shareValueForSubmit > 100)
+    ) {
+      toast.error("Cleaner share must be between 0 and 100.");
       return;
     }
     try {
-      await assignCleaner(assignTarget.id, { cleanerId: selectedCleanerId });
+      const payload =
+        selectedCleanerIds.length === 1
+          ? {
+              cleanerId: selectedCleanerIds[0],
+              ...(shareValueForSubmit !== undefined
+                ? { cleanerSharePercentage: shareValueForSubmit }
+                : {}),
+            }
+          : {
+              cleanerIds: selectedCleanerIds,
+              cleanerSharePercentage: shareValueForSubmit,
+            };
+      await assignCleaner(assignTarget.id, payload);
       // Refresh names/data to avoid stale UI and ensure persistence
       fetchCleaners({ limit: 100 }).catch(() => {});
       fetchQuotes({
@@ -346,9 +421,9 @@ function Booking() {
                   Residential Booking
                 </p>
                 <h3 className="text-lg font-semibold text-gray-900">Assign Cleaner</h3>
-                <p className="text-sm text-gray-500">
-                  Select a cleaner for booking {assignTarget.id}. Existing assignment will be replaced.
-                </p>
+                  <p className="text-sm text-gray-500">
+                    Select one or more cleaners for booking {assignTarget.id}. Shares will be split equally.
+                  </p>
               </div>
               <button
                 onClick={closeAssignModal}
@@ -358,29 +433,47 @@ function Booking() {
               </button>
             </div>
 
-            <div className="space-y-4 px-6 py-4">
-              <div className="grid gap-3 text-sm text-gray-700 sm:grid-cols-2">
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase text-gray-500">Booking ID</div>
-                  <div className="font-semibold text-gray-900">{assignTarget.id}</div>
+              <div className="space-y-4 px-6 py-4">
+                <div className="grid gap-3 text-sm text-gray-700 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                    <div className="text-[11px] uppercase text-gray-500">Booking ID</div>
+                    <div className="font-semibold text-gray-900">{assignTarget.id}</div>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="text-[11px] uppercase text-gray-500">Schedule</div>
-                  <div className="font-semibold text-gray-900">
-                    {formatDateTime(
-                      assignTarget.scheduling?.preferredDate,
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                    <div className="text-[11px] uppercase text-gray-500">Schedule</div>
+                    <div className="font-semibold text-gray-900">
+                      {formatDateTime(
+                        assignTarget.scheduling?.preferredDate,
                       assignTarget.scheduling?.startTime
                     ) || "-"}
                   </div>
                 </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 sm:col-span-2 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase text-gray-500">Selection</div>
+                    <div className="font-semibold text-gray-900">
+                      {selectedCleanerIds.length || 0} cleaner
+                      {selectedCleanerIds.length === 1 ? "" : "s"} selected
+                    </div>
+                  </div>
+                  {selectedCleanerIds.length > 1 ? (
+                    <span className="rounded-full bg-[#C85344]/10 px-3 py-1 text-[11px] font-semibold text-[#C85344]">
+                      Multi-cleaner split required
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-gray-200 px-3 py-1 text-[11px] font-semibold text-gray-700">
+                      Single cleaner
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="rounded-2xl border border-gray-200">
-                <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
-                  <Search className="h-4 w-4 text-gray-400" />
-                  <input
-                    value={cleanerSearch}
-                    onChange={(e) => setCleanerSearch(e.target.value)}
+                  <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    <input
+                      value={cleanerSearch}
+                      onChange={(e) => setCleanerSearch(e.target.value)}
                     placeholder="Search cleaners by name or email"
                     className="flex-1 bg-transparent text-sm focus:outline-none"
                   />
@@ -398,55 +491,105 @@ function Booking() {
                     <div className="px-4 py-3 text-sm text-gray-500">No cleaners match that search.</div>
                   ) : (
                     filteredCleaners.map((cleaner) => {
-                      const id = cleaner._id || cleaner.id;
-                      return (
-                        <label
-                          key={id}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
-                        >
-                          <input
-                            type="radio"
-                            name="selectedCleaner"
-                            value={id}
-                            checked={selectedCleanerId === id}
-                            onChange={() => setSelectedCleanerId(id)}
-                            className="h-4 w-4 accent-[#C85344]"
-                          />
+                        const id = String(cleaner._id || cleaner.id);
+                        const checked = selectedCleanerIds.includes(id);
+                        return (
+                          <label
+                            key={id}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              name="selectedCleaners"
+                              value={id}
+                              checked={checked}
+                              onChange={() => {
+                                setSelectedCleanerIds((prev) => {
+                                  const next = prev.map(String);
+                                  return next.includes(id)
+                                    ? next.filter((c) => c !== id)
+                                    : [...next, id];
+                                });
+                              }}
+                              className="h-4 w-4 accent-[#C85344]"
+                            />
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-gray-900">
                               {cleaner.fullName || "Cleaner"}
-                            </span>
-                            <span className="text-xs text-gray-500">{cleaner.email}</span>
-                          </div>
-                          {typeof cleaner.cleanerPercentage === "number" && (
-                            <span className="ml-auto rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]">
-                              {cleaner.cleanerPercentage}% split
-                            </span>
-                          )}
-                        </label>
-                      );
+                        </span>
+                        <span className="text-xs text-gray-500">{cleaner.email}</span>
+                      </div>
+                        <span className="ml-auto rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]">
+                          {perCleanerSplit !== null && selectedCleanerIds.length > 1
+                            ? `${perCleanerSplit % 1 === 0 ? perCleanerSplit : perCleanerSplit.toFixed(2)}% each`
+                            : typeof cleaner.cleanerPercentage === "number"
+                            ? `${cleaner.cleanerPercentage}% split`
+                            : "Configured split"}
+                        </span>
+                      </label>
+                    );
                     })
                   )}
                 </div>
               </div>
-            </div>
+              </div>
 
-            <div className="flex flex-col gap-2 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-gray-500">
-                Residential bookings allow only one cleaner. The previous assignment will be overwritten.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={closeAssignModal}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmAssign}
-                  disabled={!selectedCleanerId || isAssigning}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-70"
-                >
+              <div className="flex flex-col gap-2 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs text-gray-500 space-y-1">
+                  <p>
+                    You can assign multiple cleaners. Provide the portion of the quote to share; it will be divided equally among selected cleaners.
+                  </p>
+                  {perCleanerSplit !== null && (
+                    <div className="text-xs text-gray-700">
+                      {parsedShare}% distributed / {selectedCleanerIds.length || 1} cleaner
+                      {selectedCleanerIds.length === 1 ? "" : "s"} ={" "}
+                      {perCleanerSplit % 1 === 0
+                        ? perCleanerSplit
+                        : perCleanerSplit.toFixed(2)}
+                      % each
+                    </div>
+                  )}
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <span className="text-xs uppercase text-gray-500">Share %</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                      step="1"
+                      value={cleanerShare}
+                      onChange={(e) => setCleanerShare(e.target.value)}
+                      placeholder="e.g., 80"
+                      className={`w-24 rounded-lg border px-3 py-1.5 text-sm focus:border-[#C85344] focus:ring-2 focus:ring-[#C85344]/20 ${
+                        shareInvalid || shareMissingForMulti
+                          ? "border-[#C85344]"
+                          : "border-gray-200"
+                      }`}
+                    />
+                    <span
+                      className={`text-xs ${
+                        shareInvalid || shareMissingForMulti
+                          ? "text-[#C85344]"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {selectedCleanerIds.length > 1
+                        ? "Required when assigning multiple cleaners."
+                        : "Optional; defaults to the cleaner's configured split."}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeAssignModal}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmAssign}
+                    disabled={disableAssign}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-70"
+                  >
                   {isAssigning && <Loader2 className="h-4 w-4 animate-spin" />}
                   Assign Cleaner
                 </button>
@@ -599,8 +742,39 @@ function Booking() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paginated.map((b) => {
-                const isResidential = (b.cleaningDetails?.serviceType || "").toLowerCase().includes("residential");
+                const serviceType = (b.cleaningDetails?.serviceType || "").toLowerCase();
+                const isResidential = serviceType.includes("residential");
+                const isManual = serviceType.includes("commercial") || serviceType.includes("post-construction");
                 const paymentStatus = b.paymentStatus || "Unpaid";
+                const assignedCount =
+                  (b.assignedCleanerIds && b.assignedCleanerIds.length) || 0;
+                const perCleaner =
+                  b.scheduling?.assignedShare !== null &&
+                  b.scheduling?.assignedShare !== undefined &&
+                  assignedCount > 0
+                    ? b.scheduling.assignedShare / assignedCount
+                    : null;
+                const totalShare =
+                  b.scheduling?.assignedShare !== null &&
+                  b.scheduling?.assignedShare !== undefined
+                    ? b.scheduling.assignedShare
+                    : null;
+                const fallbackCleanerPct = (() => {
+                  const primaryId =
+                    (b.assignedCleanerIds && b.assignedCleanerIds[0]) ||
+                    b.assignedCleanerId;
+                  const cleaner = primaryId && cleanerMap.get(String(primaryId));
+                  return typeof cleaner?.cleanerPercentage === "number"
+                    ? cleaner.cleanerPercentage
+                    : null;
+                })();
+                const shareBadge = perCleaner !== null && assignedCount > 1
+                  ? `${formatPercent(perCleaner)} each`
+                  : totalShare !== null
+                  ? `${formatPercent(totalShare)} split`
+                  : fallbackCleanerPct !== null
+                  ? `${formatPercent(fallbackCleanerPct)} split`
+                  : null;
                 return (
                   <tr key={b.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-semibold text-gray-900">{b.id}</td>
@@ -620,32 +794,42 @@ function Booking() {
                         {b.cleaningDetails?.serviceType}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      {b.scheduling?.assignedCleaner ? (
-                        <div className="space-y-2">
-                          <div className="font-semibold text-gray-900">{b.scheduling.assignedCleaner}</div>
-                          {isResidential && (
-                            <div className="flex items-center gap-2 text-xs text-[#C85344]">
-                              <span>Single cleaner enforced</span>
-                              <button
-                                onClick={() => handleAssignCleaner(b)}
-                                className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344] hover:bg-[#C85344]/5"
-                              >
-                                Change
-                              </button>
-                            </div>
-                          )}
+                  <td className="px-6 py-4">
+                    {b.scheduling?.assignedCleaner ? (
+                      <div className="space-y-2">
+                        <div className="font-semibold text-gray-900">
+                          {b.scheduling.assignedCleaner}
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => handleAssignCleaner(b)}
-                          className="inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344] hover:bg-[#C85344]/5"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          Assign Cleaner
-                        </button>
-                      )}
-                    </td>
+                        {shareBadge && (
+                          <span className="inline-flex items-center rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]">
+                            {shareBadge}
+                          </span>
+                        )}
+                        {isResidential && !isManual && (
+                          <div className="flex items-center gap-2 text-xs text-[#C85344]">
+                            <button
+                              onClick={() => handleAssignCleaner(b)}
+                              className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344] hover:bg-[#C85344]/5"
+                            >
+                              Update cleaners
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : isManual ? (
+                      <span className="text-xs text-gray-500">
+                        No cleaner assignment needed for this service type
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleAssignCleaner(b)}
+                        className="inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344] hover:bg-[#C85344]/5"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        Assign Cleaner
+                      </button>
+                    )}
+                  </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -671,21 +855,21 @@ function Booking() {
                       <div className="flex justify-end gap-2 text-gray-500">
                         <button
                           onClick={() => navigate(`/bookings/${b.id}`)}
-                          className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                           title="View"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => navigate(`/bookings/${b.id}/edit`)}
-                          className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                           title="Edit"
                         >
                           <Edit3 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(b.id)}
-                          className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                           title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -708,8 +892,39 @@ function Booking() {
 
         <div className="grid gap-4 p-4 lg:hidden">
           {paginated.map((b) => {
-            const isResidential = (b.cleaningDetails?.serviceType || "").toLowerCase().includes("residential");
+            const serviceType = (b.cleaningDetails?.serviceType || "").toLowerCase();
+            const isResidential = serviceType.includes("residential");
+            const isManual = serviceType.includes("commercial") || serviceType.includes("post-construction");
             const paymentStatus = b.paymentStatus || "Unpaid";
+            const assignedCount =
+              (b.assignedCleanerIds && b.assignedCleanerIds.length) || 0;
+            const perCleaner =
+              b.scheduling?.assignedShare !== null &&
+              b.scheduling?.assignedShare !== undefined &&
+              assignedCount > 0
+                ? b.scheduling.assignedShare / assignedCount
+                : null;
+            const totalShare =
+              b.scheduling?.assignedShare !== null &&
+              b.scheduling?.assignedShare !== undefined
+                ? b.scheduling.assignedShare
+                : null;
+            const fallbackCleanerPct = (() => {
+              const primaryId =
+                (b.assignedCleanerIds && b.assignedCleanerIds[0]) ||
+                b.assignedCleanerId;
+              const cleaner = primaryId && cleanerMap.get(String(primaryId));
+              return typeof cleaner?.cleanerPercentage === "number"
+                ? cleaner.cleanerPercentage
+                : null;
+            })();
+            const shareBadge = perCleaner !== null && assignedCount > 1
+              ? `${formatPercent(perCleaner)} each`
+              : totalShare !== null
+              ? `${formatPercent(totalShare)} split`
+              : fallbackCleanerPct !== null
+              ? `${formatPercent(fallbackCleanerPct)} split`
+              : null;
             return (
               <div key={b.id} className="rounded-xl border border-gray-200 p-4 shadow-sm">
                 <div className="flex items-start justify-between">
@@ -738,21 +953,28 @@ function Booking() {
                       {b.cleaningDetails?.serviceType}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-xs">
                       <span className="font-semibold text-gray-900">Cleaner:</span>{" "}
                       {b.scheduling?.assignedCleaner || "Unassigned"}
                     </div>
-                    {isResidential && b.scheduling?.assignedCleaner && (
+                    <div className="flex items-center gap-2">
+                      {shareBadge && (
+                        <span className="rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C85344]">
+                          {shareBadge}
+                        </span>
+                      )}
+                    {isResidential && !isManual && b.scheduling?.assignedCleaner && (
                       <button
                         onClick={() => handleAssignCleaner(b)}
                         className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]"
                       >
-                        Change
-                      </button>
-                    )}
+                        Update
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {!b.scheduling?.assignedCleaner && (
+                  {!b.scheduling?.assignedCleaner && !isManual && (
                     <button
                       onClick={() => handleAssignCleaner(b)}
                       className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344]"
@@ -760,9 +982,6 @@ function Booking() {
                       <UserPlus className="h-4 w-4" />
                       Assign Cleaner
                     </button>
-                  )}
-                  {isResidential && b.scheduling?.assignedCleaner && (
-                    <span className="text-[10px] text-[#C85344]">Single cleaner enforced</span>
                   )}
                   <div
                     className={`inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-semibold ${
@@ -775,19 +994,19 @@ function Booking() {
                 <div className="mt-3 flex justify-end gap-2 text-gray-500">
                   <button
                     onClick={() => navigate(`/bookings/${b.id}`)}
-                    className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                   >
                     <Eye className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => navigate(`/bookings/${b.id}/edit`)}
-                    className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                   >
                     <Edit3 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(b.id)}
-                    className="rounded-full border border-gray-200 p-2 hover:text-[#C85344]"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

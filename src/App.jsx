@@ -21,6 +21,7 @@ import Booking from "./pages/booking/Booking";
 import CreateBooking from "./pages/booking/CreateBooking";
 import ViewBooking from "./pages/booking/ViewBooking";
 import EditBooking from "./pages/booking/EditBooking";
+import ServiceRequests from "./pages/booking/ServiceRequests";
 import Users from "./pages/users/Users";
 import ViewUser from "./pages/users/ViewUser";
 import EditUser from "./pages/users/EditUser";
@@ -90,13 +91,14 @@ function App() {
           <Route path="bookings/add" element={<CreateBooking />} />
           <Route path="bookings/:id" element={<ViewBooking />} />
           <Route path="bookings/:id/edit" element={<EditBooking />} />
+          <Route path="service-requests" element={<ServiceRequests />} />
           <Route path="users" element={<Users />} />
           <Route path="users/add" element={<CreateUser />} />
           <Route path="users/:id" element={<ViewUser />} />
           <Route path="users/:id/edit" element={<EditUser />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="job-reports" element={<JobReports />} />
-          <Route path="job-details" element={<JobReportDetails />} />
+          <Route path="job-reports/:reportId" element={<JobReportDetails />} />
           <Route path="settings" element={<Setting />} />
         </Route>
 

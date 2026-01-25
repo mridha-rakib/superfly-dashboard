@@ -1,30 +1,84 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "react-toastify";
+import { useCleaningReportStore } from "../../state/cleaningReportStore";
+
+const statusTone = (status) => {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "approved") return "bg-green-50 text-green-700 border-green-200";
+  return "bg-amber-50 text-amber-700 border-amber-200";
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const mapReportRow = (report) => {
+  const quote = report?.quote;
+  const cleaner = report?.cleaner;
+  const bookingId = quote?._id || report?.quoteId || report?._id;
+  const clientName =
+    quote?.companyName ||
+    quote?.contactName ||
+    [quote?.firstName, quote?.lastName].filter(Boolean).join(" ") ||
+    "Client";
+  return {
+    id: report?._id || report?.id,
+    bookingId,
+    cleaner: cleaner?.fullName || cleaner?.email || "Cleaner",
+    client: clientName,
+    serviceType: quote?.serviceType || "Residential",
+    date: quote?.serviceDate || report?.createdAt,
+    status: (report?.status || "").toLowerCase() === "approved" ? "Approved" : "Pending",
+  };
+};
 
 function JobReports() {
   const navigate = useNavigate();
+  const {
+    reports,
+    pagination,
+    isLoadingList,
+    error,
+    fetchReports,
+    clearError,
+  } = useCleaningReportStore();
+
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-  const totalPages = 30; // 150 results at 5 per page
+  const rowsPerPage = 10;
 
-  const statsCards = [
-    { title: "Total Jobs", value: "150", change: "+12%", tone: "up" },
-    { title: "Verified", value: "120", change: "+8%", tone: "up" },
-    { title: "Pending", value: "25", change: "-5%", tone: "down" },
-  ];
+  useEffect(() => {
+    fetchReports({ page: currentPage, limit: rowsPerPage }).catch(() =>
+      toast.error("Failed to load job reports")
+    );
+    return () => clearError();
+  }, [currentPage, rowsPerPage, fetchReports, clearError]);
 
-  const jobData = [
-    { id: 1, bookingId: "#RES-101", cleaner: "John Admin", client: "Rahim Khan", serviceType: "Residential", date: "05 NOV 2025", status: "Pending" },
-    { id: 2, bookingId: "#RES-102", cleaner: "Sarah Johnson", client: "Ava Brooks", serviceType: "Commercial", date: "06 NOV 2025", status: "Verified" },
-    { id: 3, bookingId: "#RES-103", cleaner: "John Admin", client: "Rahim Khan", serviceType: "Residential", date: "07 NOV 2025", status: "Pending" },
-    { id: 4, bookingId: "#COM-201", cleaner: "Sarah Johnson", client: "Metro Builders", serviceType: "Post-Construction", date: "08 NOV 2025", status: "Verified" },
-    { id: 5, bookingId: "#RES-104", cleaner: "John Admin", client: "Rahim Khan", serviceType: "Residential", date: "09 NOV 2025", status: "Pending" },
-  ];
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
-  const handlePrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-  const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const mapped = useMemo(() => (reports || []).map(mapReportRow), [reports]);
+
+  const statsCards = useMemo(() => {
+    const total = pagination?.totalItems || mapped.length;
+    const approved = mapped.filter((r) => r.status === "Approved").length;
+    const pending = total - approved;
+    return [
+      { title: "Total Jobs", value: total },
+      { title: "Approved", value: approved },
+      { title: "Pending", value: pending },
+    ];
+  }, [mapped, pagination?.totalItems]);
+
+  const totalPages = pagination?.totalPages || 1;
+
+  const handlePrevious = () => currentPage > 1 && setCurrentPage((p) => p - 1);
+  const handleNext = () => currentPage < totalPages && setCurrentPage((p) => p + 1);
   const handlePageClick = (page) => setCurrentPage(page);
 
   const renderPaginationNumbers = () => {
@@ -47,16 +101,6 @@ function JobReports() {
     return pages;
   };
 
-  const statusTone = (status) => {
-    if (status === "Verified") return "bg-green-50 text-green-700 border-green-200";
-    return "bg-amber-50 text-amber-700 border-amber-200";
-  };
-
-  const visibleJobs = useMemo(
-    () => jobData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage),
-    [currentPage, jobData]
-  );
-
   return (
     <div className="w-full mx-auto space-y-6 p-6">
       <div className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-gradient-to-r from-[#fff5f3] via-white to-[#fff7f5] p-5 shadow-sm">
@@ -76,15 +120,6 @@ function JobReports() {
                   <p className="text-xs uppercase tracking-wide text-gray-500">{card.title}</p>
                   <p className="text-xl font-semibold text-gray-900">{card.value}</p>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
-                    card.tone === "up"
-                      ? "bg-green-50 text-green-700 border border-green-200"
-                      : "bg-amber-50 text-amber-700 border border-amber-200"
-                  }`}
-                >
-                  {card.change}
-                </span>
               </div>
             ))}
           </div>
@@ -98,11 +133,14 @@ function JobReports() {
             <h2 className="text-lg font-semibold text-gray-900">Jobs Summary</h2>
           </div>
           <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-            {jobData.length} jobs
+            {pagination?.totalItems || mapped.length} jobs
           </span>
         </div>
 
         <div className="overflow-x-auto">
+          {isLoadingList && (
+            <div className="px-6 py-3 text-sm text-gray-500">Loading reports...</div>
+          )}
           <table className="w-full">
             <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
               <tr>
@@ -116,7 +154,7 @@ function JobReports() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {visibleJobs.map((job) => (
+              {mapped.map((job) => (
                 <tr key={job.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{job.bookingId}</td>
                   <td className="px-6 py-4 text-sm text-gray-800">{job.cleaner}</td>
@@ -126,7 +164,7 @@ function JobReports() {
                       {job.serviceType}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{job.date}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{formatDate(job.date)}</td>
                   <td className="px-6 py-4 text-sm">
                     <span
                       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(
@@ -138,14 +176,21 @@ function JobReports() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => navigate(`/job-details`)}
-                      className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-[#C85344]/30 hover:text-[#C85344]"
+                      onClick={() => navigate(`/job-reports/${job.id}`)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                     >
                       <HugeiconsIcon icon={ViewIcon} />
                     </button>
                   </td>
                 </tr>
               ))}
+              {!mapped.length && !isLoadingList && (
+                <tr>
+                  <td colSpan="7" className="px-6 py-6 text-center text-sm text-gray-500">
+                    No reports found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -153,8 +198,8 @@ function JobReports() {
 
       <div className="flex flex-col items-center justify-between gap-4 text-sm text-gray-700 sm:flex-row">
         <div>
-          Showing {(currentPage - 1) * rowsPerPage + 1}-{Math.min(currentPage * rowsPerPage, jobData.length)} of{" "}
-          {jobData.length} Results
+          Showing {(currentPage - 1) * rowsPerPage + 1}-{Math.min(currentPage * rowsPerPage, pagination?.totalItems || mapped.length)} of{" "}
+          {pagination?.totalItems || mapped.length} Results
         </div>
         <div className="flex items-center gap-2">
           <button

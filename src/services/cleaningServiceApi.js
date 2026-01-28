@@ -15,8 +15,18 @@ export const cleaningServiceApi = {
     return unwrap(response);
   },
 
-  createService: async ({ name, price }) => {
-    const response = await httpClient.post("/services", { name, price });
+  createService: async ({ name, price, inputType = "BOOLEAN", quantityLabel }) => {
+    const response = await httpClient.post("/services", {
+      name,
+      price,
+      inputType,
+      quantityLabel: inputType === "QUANTITY" ? quantityLabel : undefined,
+    });
+    return unwrap(response);
+  },
+
+  updateService: async (serviceId, payload) => {
+    const response = await httpClient.put(`/services/${serviceId}`, payload);
     return unwrap(response);
   },
 

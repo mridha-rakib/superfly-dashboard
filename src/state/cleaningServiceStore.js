@@ -51,10 +51,15 @@ export const useCleaningServiceStore = create((set, get) => ({
     }
   },
 
-  addService: async ({ name, price }) => {
+  addService: async ({ name, price, inputType = "BOOLEAN", quantityLabel }) => {
     set({ isCreating: true, error: null });
     try {
-      const service = await cleaningServiceApi.createService({ name, price });
+      const service = await cleaningServiceApi.createService({
+        name,
+        price,
+        inputType,
+        quantityLabel,
+      });
       set((state) => ({
         services: [service, ...(state.services || [])],
         isCreating: false,

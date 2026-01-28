@@ -15,6 +15,8 @@ function Pricing() {
   const [newItem, setNewItem] = useState({
     service: "",
     price: "",
+    inputType: "BOOLEAN",
+    quantityLabel: "",
   });
 
   const {
@@ -130,13 +132,23 @@ function Pricing() {
       return;
     }
 
+    if (newItem.inputType === "QUANTITY" && !newItem.quantityLabel.trim()) {
+      toast.error("Please enter a quantity label for quantity-based services");
+      return;
+    }
+
     try {
       await addService({
         name: newItem.service.trim(),
         price: parseFloat(newItem.price),
+        inputType: newItem.inputType,
+        quantityLabel:
+          newItem.inputType === "QUANTITY"
+            ? newItem.quantityLabel.trim()
+            : undefined,
       });
       toast.success("New service added successfully!");
-      setNewItem({ service: "", price: "" });
+      setNewItem({ service: "", price: "", inputType: "BOOLEAN", quantityLabel: "" });
       setShowAddModal(false);
     } catch (err) {
       const message =
@@ -148,7 +160,7 @@ function Pricing() {
   };
 
   const handleCancelAdd = () => {
-    setNewItem({ service: "", price: "" });
+    setNewItem({ service: "", price: "", inputType: "BOOLEAN", quantityLabel: "" });
     setShowAddModal(false);
   };
 
@@ -223,6 +235,7 @@ function Pricing() {
                 <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-6 py-3">Service</th>
                   <th className="px-6 py-3">Price ($)</th>
+                  <th className="px-6 py-3">Type</th>
                   <th className="px-6 py-3">Last Updated</th>
                   <th className="px-6 py-3">Actions</th>
                 </tr>
@@ -252,6 +265,12 @@ function Pricing() {
                         ) : (
                           `$${item.price}`
                         )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {item.inputType === "QUANTITY" ? "Check + number" : "Check only"}
+                        {item.inputType === "QUANTITY" && item.quantityLabel
+                          ? ` · ${item.quantityLabel}`
+                          : ""}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {item.updatedAt || item.createdAt
@@ -427,6 +446,53 @@ function Pricing() {
                   step="0.01"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Selection Type
+                </label>
+                <div className="flex gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="radio"
+                      name="inputType"
+                      value="BOOLEAN"
+                      checked={newItem.inputType === "BOOLEAN"}
+                      onChange={(e) =>
+                        setNewItem((prev) => ({ ...prev, inputType: e.target.value }))
+                      }
+                    />
+                    Check only
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="radio"
+                      name="inputType"
+                      value="QUANTITY"
+                      checked={newItem.inputType === "QUANTITY"}
+                      onChange={(e) =>
+                        setNewItem((prev) => ({ ...prev, inputType: e.target.value }))
+                      }
+                    />
+                    Check + number
+                  </label>
+                </div>
+              </div>
+              {newItem.inputType === "QUANTITY" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity Label (e.g., Bedrooms, Bathrooms)
+                  </label>
+                  <input
+                    type="text"
+                    value={newItem.quantityLabel}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, quantityLabel: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter label shown to clients"
+                  />
+                </div>
+              )}
             </div>
             <div className="flex justify-end space-x-3 mt-6">
               <button

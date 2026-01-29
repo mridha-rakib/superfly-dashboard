@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { Edit3, Eye, Trash2, UserPlus, ChevronDown, Building2, Loader2, Search } from "lucide-react";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
+import { formatTimeTo12Hour } from "../../lib/time-utils";
 
 const statusStyles = {
   Pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
@@ -22,7 +23,14 @@ const paymentStyles = {
 const formatDateTime = (date, time) => {
   if (!date) return "";
   const d = new Date(date);
-  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${time || ""}`;
+  if (Number.isNaN(d.getTime())) return "";
+  const formattedDate = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const formattedTime = formatTimeTo12Hour(time);
+  return formattedTime ? `${formattedDate} - ${formattedTime}` : formattedDate;
 };
 
 const mapStatusLabel = (quote) => {
@@ -490,9 +498,13 @@ function Booking() {
                   ) : filteredCleaners.length === 0 ? (
                     <div className="px-4 py-3 text-sm text-gray-500">No cleaners match that search.</div>
                   ) : (
-                    filteredCleaners.map((cleaner) => {
+                  filteredCleaners.map((cleaner) => {
                         const id = String(cleaner._id || cleaner.id);
                         const checked = selectedCleanerIds.includes(id);
+                        const showMultiShare =
+                          perCleanerSplit !== null &&
+                          selectedCleanerIds.length > 1 &&
+                          checked;
                         return (
                           <label
                             key={id}
@@ -520,7 +532,7 @@ function Booking() {
                         <span className="text-xs text-gray-500">{cleaner.email}</span>
                       </div>
                         <span className="ml-auto rounded-full bg-[#C85344]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]">
-                          {perCleanerSplit !== null && selectedCleanerIds.length > 1
+                          {showMultiShare
                             ? `${perCleanerSplit % 1 === 0 ? perCleanerSplit : perCleanerSplit.toFixed(2)}% each`
                             : typeof cleaner.cleanerPercentage === "number"
                             ? `${cleaner.cleanerPercentage}% split`

@@ -2,17 +2,19 @@ import React, { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useCleaningReportStore } from "../../state/cleaningReportStore";
+import { formatTimeFromDate } from "../../lib/time-utils";
 
 const fmtDateTime = (value) => {
   if (!value) return "-";
   const d = new Date(value);
-  return d.toLocaleString("en-US", {
+  if (Number.isNaN(d.getTime())) return "-";
+  const datePart = d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   });
+  const timePart = formatTimeFromDate(d);
+  return timePart ? `${datePart} • ${timePart}` : datePart;
 };
 
 const duration = (start, end) => {

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
+import { formatTimeTo12Hour } from "../../lib/time-utils";
 
 const statusColors = {
   Pending: "bg-yellow-100 text-yellow-800",
@@ -170,7 +171,7 @@ function ViewBooking() {
         <h2 className="text-2xl font-semibold mb-5 text-gray-800">Cleaning Details</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {infoItem("Service Type", serviceLabel)}
-          {infoItem("Preferred Time", quote.preferredTime || "-")}
+          {infoItem("Preferred Time", formatTimeTo12Hour(quote.preferredTime) || "-")}
           {infoItem("Notes", quote.notes || "-", 2)}
           {infoItem("Square Footage", squareFoot)}
           {infoItem("Cleaning Frequency", cleaningFrequency)}

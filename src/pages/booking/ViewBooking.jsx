@@ -162,7 +162,7 @@ function ViewBooking() {
           {infoItem("Client", quote.companyName || quote.contactName || "Client")}
           {infoItem("Email", quote.email || "-")}
           {infoItem("Phone", quote.phoneNumber || "-")}
-          {infoItem("Address", quote.businessAddress || "-", 2)}
+          {infoItem("Address", quote.businessAddress || quote.clientAddress || "-", 2)}
         </div>
       </section>
 

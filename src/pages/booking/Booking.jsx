@@ -236,7 +236,10 @@ function Booking() {
             businessName: customerName,
             phone: q.phoneNumber,
             email: q.email,
-            address: q.businessAddress,
+            address:
+              q.businessAddress ||
+              q.clientAddress ||
+              "Address not provided",
           },
           cleaningDetails: {
             serviceType: serviceLabel,

@@ -173,7 +173,11 @@ function JobReportDetails() {
           <InfoRow label="Service Type" value={quote?.serviceType || "Residential"} />
           <InfoRow label="Date" value={fmtDateTime(quote?.serviceDate || report.createdAt)} />
           <InfoRow label="Status" value={report.status === "approved" ? "Approved" : "Pending"} />
-          <InfoRow label="Address" value={quote?.businessAddress || "-"} span />
+            <InfoRow
+              label="Address"
+              value={quote?.businessAddress || quote?.clientAddress || "-"}
+              span
+            />
         </div>
       </div>
 

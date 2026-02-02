@@ -24,6 +24,7 @@ const initialState = {
   isLoading: false,
   isDeleting: false,
   isAssigning: false,
+  isUpdatingStatus: false,
   isLoadingDetail: false,
   error: null,
 };
@@ -144,6 +145,34 @@ export const useQuoteStore = create((set, get) => ({
       return true;
     } catch (error) {
       set({ isDeleting: false, error: parseError(error) });
+      throw error;
+    }
+  },
+
+  updateStatus: async (id, payload) => {
+    set({ isUpdatingStatus: true, error: null });
+    try {
+      const updatedRaw = await quoteApi.updateStatus(id, payload);
+      const updated = updatedRaw?.data || updatedRaw || {};
+
+      set((state) => {
+        const targetId = String(id);
+        const normalizeQuote = (quote) => {
+          if (!quote) return quote;
+          const quoteId = String(quote._id || quote.id || "");
+          if (!quoteId || quoteId !== targetId) return quote;
+          return { ...quote, ...updated };
+        };
+
+        return {
+          quotes: (state.quotes || []).map(normalizeQuote),
+          selectedQuote: normalizeQuote(state.selectedQuote),
+          isUpdatingStatus: false,
+        };
+      });
+      return updated;
+    } catch (error) {
+      set({ isUpdatingStatus: false, error: parseError(error) });
       throw error;
     }
   },

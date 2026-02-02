@@ -12,6 +12,8 @@ const statusStyles = {
   "On Site": "bg-orange-50 text-orange-700 border-orange-200",
   "Report Submitted": "bg-purple-50 text-purple-700 border-purple-200",
   Completed: "bg-green-50 text-green-700 border-green-200",
+  Accepted: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Rejected: "bg-red-50 text-red-700 border-red-200",
 };
 
 const paymentStyles = {
@@ -35,7 +37,12 @@ const formatDateTime = (date, time) => {
 
 const mapStatusLabel = (quote) => {
   const admin = quote?.adminStatus;
+  const status = (quote?.status || "").toLowerCase();
   const normalized = (admin || quote?.status || "").toLowerCase();
+
+  if (status === "reviewed") return "Accepted";
+  if (status === "contacted") return "Rejected";
+
   switch (normalized) {
     case "assigned":
       return "Assigned";

@@ -65,13 +65,17 @@ function ViewBooking() {
     cleaners,
     fetchCleaners,
     isLoadingList: isLoadingCleaners,
+    clearError: clearCleanerError,
   } = useCleanerStore();
 
   useEffect(() => {
     fetchQuoteById(id).catch(() => {});
-    fetchCleaners({ limit: 200 }).catch(() => {});
-    return () => clearError();
-  }, [id, fetchQuoteById, fetchCleaners, clearError]);
+    fetchCleaners({ limit: 100 }).catch(() => {});
+    return () => {
+      clearError();
+      clearCleanerError();
+    };
+  }, [id, fetchQuoteById, fetchCleaners, clearError, clearCleanerError]);
 
   const quote =
     selectedQuote && (selectedQuote._id === id || selectedQuote.id === id)

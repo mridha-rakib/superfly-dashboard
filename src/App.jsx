@@ -88,6 +88,30 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="bookings" element={<Booking />} />
+          <Route
+            path="bookings/residential"
+            element={<Booking presetService="Residential" />}
+          />
+          <Route
+            path="bookings/residential/:id"
+            element={<ViewBooking />}
+          />
+          <Route
+            path="bookings/commercial"
+            element={<Booking presetService="Commercial" />}
+          />
+          <Route
+            path="bookings/commercial/:id"
+            element={<ViewBooking />}
+          />
+          <Route
+            path="bookings/post-construction"
+            element={<Booking presetService="Post-Construction" />}
+          />
+          <Route
+            path="bookings/post-construction/:id"
+            element={<ViewBooking />}
+          />
           <Route path="bookings/add" element={<CreateBooking />} />
           <Route path="bookings/:id" element={<ViewBooking />} />
           <Route path="bookings/:id/edit" element={<EditBooking />} />

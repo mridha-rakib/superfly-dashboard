@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Edit3, Eye, Trash2, UserPlus, ChevronDown, Building2, Loader2, Search } from "lucide-react";
+import { Edit3, Eye, Trash2, UserPlus, Loader2, Search } from "lucide-react";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
-import { formatTimeTo12Hour } from "../../lib/time-utils";
+import { formatTimeTo12Hour, parseTimeTo24Hour } from "../../lib/time-utils";
 
 const statusStyles = {
   Pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
@@ -33,6 +33,41 @@ const formatDateTime = (date, time) => {
   });
   const formattedTime = formatTimeTo12Hour(time);
   return formattedTime ? `${formattedDate} - ${formattedTime}` : formattedDate;
+};
+
+const resolveStartDateTime = (dateValue, timeValue) => {
+  if (!dateValue) return null;
+  let date;
+  const dateString = dateValue.toString();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    date = new Date(year, month - 1, day);
+  } else {
+    date = new Date(dateString);
+  }
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (timeValue) {
+    const normalized = parseTimeTo24Hour(timeValue);
+    if (normalized) {
+      const [hour, minute] = normalized.split(":").map(Number);
+      date.setHours(hour || 0, minute || 0, 0, 0);
+      return date;
+    }
+  }
+
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const isAssignmentLocked = (booking) => {
+  const startTime = resolveStartDateTime(
+    booking?.scheduling?.preferredDate,
+    booking?.scheduling?.startTime
+  );
+  if (!startTime) return false;
+  return startTime.getTime() <= Date.now();
 };
 
 const mapStatusLabel = (quote) => {
@@ -91,19 +126,38 @@ const toApiServiceType = (filterService) => {
   return undefined;
 };
 
-function Booking() {
+function Booking({ presetService }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const normalizedPreset = useMemo(() => {
+    if (!presetService) return null;
+    const normalized = presetService.toString().toLowerCase();
+    if (normalized.includes("residential")) return "Residential";
+    if (normalized.includes("commercial")) return "Commercial";
+    if (normalized.includes("post")) return "Post-Construction";
+    return null;
+  }, [presetService]);
   const [status, setStatus] = useState(searchParams.get("status") || "All");
-  const [service, setService] = useState(searchParams.get("service") || "All");
+  const [service, setService] = useState(
+    normalizedPreset || searchParams.get("service") || "All"
+  );
   const [payment, setPayment] = useState(searchParams.get("payment") || "All");
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1", 10));
-  const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
   const [selectedCleanerIds, setSelectedCleanerIds] = useState([]);
   const [cleanerShare, setCleanerShare] = useState("");
   const [cleanerSearch, setCleanerSearch] = useState("");
+  const isServiceLocked = Boolean(normalizedPreset);
+  const viewBasePath = useMemo(() => {
+    if (!normalizedPreset) return "/bookings";
+    if (normalizedPreset === "Residential") return "/bookings/residential";
+    if (normalizedPreset === "Commercial") return "/bookings/commercial";
+    if (normalizedPreset === "Post-Construction") {
+      return "/bookings/post-construction";
+    }
+    return "/bookings";
+  }, [normalizedPreset]);
 
   const perPage = 8;
   const {
@@ -143,6 +197,12 @@ function Booking() {
     if (page > 1) params.set("page", page.toString());
     setSearchParams(params, { replace: true });
   }, [status, service, payment, search, page, setSearchParams]);
+
+  useEffect(() => {
+    if (!normalizedPreset) return;
+    setService(normalizedPreset);
+    setPage(1);
+  }, [normalizedPreset]);
 
   useEffect(() => {
     fetchQuotes({
@@ -312,14 +372,6 @@ function Booking() {
     currentPage * perPage
   );
 
-  const handleCreate = (type) => {
-    setShowCreateMenu(false);
-    if (type === "Residential Cleaning") {
-      toast.warn("Admin cannot create Residential Cleaning bookings.");
-      return;
-    }
-    navigate(`/bookings/add?type=${encodeURIComponent(type)}`);
-  };
 
   const closeAssignModal = () => {
     setAssignTarget(null);
@@ -334,6 +386,10 @@ function Booking() {
       .includes("residential");
     if (!isResidential) {
       toast.info("Cleaner assignment is available for residential bookings only.");
+      return;
+    }
+    if (isAssignmentLocked(booking)) {
+      toast.info("Cleaner assignment is disabled once the service time has started.");
       return;
     }
     const existing =
@@ -421,12 +477,6 @@ function Booking() {
       toast.error(err?.message || "Failed to delete booking");
     }
   };
-
-  const createOptions = [
-    { label: "Commercial Cleaning", value: "Commercial Cleaning" },
-    { label: "Post-Construction Cleaning", value: "Post-Construction Cleaning" },
-    { label: "Residential Cleaning (disabled)", value: "Residential Cleaning", disabled: true },
-  ];
 
   return (
     <div className="space-y-6">
@@ -621,44 +671,9 @@ function Booking() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Bookings</h2>
-          <p className="text-sm text-gray-500">View and manage all cleaning bookings.</p>
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowCreateMenu((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
-          >
-            <Building2 className="h-4 w-4" />
-            Create a Booking
-            <ChevronDown className="h-4 w-4" />
-          </button>
-          {showCreateMenu && (
-            <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg">
-              {createOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  disabled={opt.disabled}
-                  onClick={() => handleCreate(opt.value)}
-                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm ${
-                    opt.disabled
-                      ? "cursor-not-allowed text-gray-400"
-                      : "hover:bg-gray-50 text-gray-800"
-                  }`}
-                >
-                  {opt.label}
-                  {opt.disabled && (
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
-                      Blocked
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900">Bookings</h2>
+        <p className="text-sm text-gray-500">View and manage all cleaning bookings.</p>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -696,11 +711,12 @@ function Booking() {
             <label className="text-xs font-semibold text-gray-500">Service Type</label>
             <select
               value={service}
+              disabled={isServiceLocked}
               onChange={(e) => {
                 setPage(1);
                 setService(e.target.value);
               }}
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
               {["All", "Residential", "Commercial", "Post-Construction"].map((s) => (
                 <option key={s} value={s}>
@@ -768,6 +784,7 @@ function Booking() {
                 const isResidential = serviceType.includes("residential");
                 const isManual = serviceType.includes("commercial") || serviceType.includes("post-construction");
                 const paymentStatus = b.paymentStatus || "Unpaid";
+                const assignmentLocked = isResidential && !isManual && isAssignmentLocked(b);
                 const assignedCount =
                   (b.assignedCleanerIds && b.assignedCleanerIds.length) || 0;
                 const perCleaner =
@@ -829,12 +846,17 @@ function Booking() {
                         )}
                         {isResidential && !isManual && (
                           <div className="flex items-center gap-2 text-xs text-[#C85344]">
-                            <button
-                              onClick={() => handleAssignCleaner(b)}
-                              className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344] hover:bg-[#C85344]/5"
-                            >
-                              Update cleaners
-                            </button>
+                            {assignmentLocked ? (
+                              <span className="text-xs text-gray-400">Assignment closed</span>
+                            ) : (
+                              <button
+                                onClick={() => handleAssignCleaner(b)}
+                                className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344] hover:bg-[#C85344]/5"
+                                title="Update cleaners"
+                              >
+                                Update cleaners
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -845,7 +867,13 @@ function Booking() {
                     ) : (
                       <button
                         onClick={() => handleAssignCleaner(b)}
-                        className="inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344] hover:bg-[#C85344]/5"
+                        className="inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344] hover:bg-[#C85344]/5 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={assignmentLocked}
+                        title={
+                          assignmentLocked
+                            ? "Assignment disabled once the service time has started"
+                            : "Assign cleaner"
+                        }
                       >
                         <UserPlus className="h-4 w-4" />
                         Assign Cleaner
@@ -876,7 +904,7 @@ function Booking() {
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2 text-gray-500">
                         <button
-                          onClick={() => navigate(`/bookings/${b.id}`)}
+                          onClick={() => navigate(`${viewBasePath}/${b.id}`)}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                           title="View"
                         >
@@ -918,6 +946,7 @@ function Booking() {
             const isResidential = serviceType.includes("residential");
             const isManual = serviceType.includes("commercial") || serviceType.includes("post-construction");
             const paymentStatus = b.paymentStatus || "Unpaid";
+            const assignmentLocked = isResidential && !isManual && isAssignmentLocked(b);
             const assignedCount =
               (b.assignedCleanerIds && b.assignedCleanerIds.length) || 0;
             const perCleaner =
@@ -987,19 +1016,30 @@ function Booking() {
                         </span>
                       )}
                     {isResidential && !isManual && b.scheduling?.assignedCleaner && (
-                      <button
-                        onClick={() => handleAssignCleaner(b)}
-                        className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]"
-                      >
-                        Update
+                      assignmentLocked ? (
+                        <span className="text-[11px] text-gray-400">Assignment closed</span>
+                      ) : (
+                        <button
+                          onClick={() => handleAssignCleaner(b)}
+                          className="rounded-full border border-[#C85344]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C85344]"
+                          title="Update cleaners"
+                        >
+                          Update
                         </button>
-                      )}
+                      )
+                    )}
                     </div>
                   </div>
                   {!b.scheduling?.assignedCleaner && !isManual && (
                     <button
                       onClick={() => handleAssignCleaner(b)}
-                      className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344]"
+                      className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#C85344]/40 px-3 py-1 text-xs font-semibold text-[#C85344] disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={assignmentLocked}
+                      title={
+                        assignmentLocked
+                          ? "Assignment disabled once the service time has started"
+                          : "Assign cleaner"
+                      }
                     >
                       <UserPlus className="h-4 w-4" />
                       Assign Cleaner
@@ -1015,7 +1055,7 @@ function Booking() {
                 </div>
                 <div className="mt-3 flex justify-end gap-2 text-gray-500">
                   <button
-                    onClick={() => navigate(`/bookings/${b.id}`)}
+                    onClick={() => navigate(`${viewBasePath}/${b.id}`)}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-[#C85344]/40 hover:text-[#C85344]"
                   >
                     <Eye className="h-4 w-4" />

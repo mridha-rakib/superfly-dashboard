@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
-import { bookingRows, earningsBreakdown, sidebarLinks, statCards } from "../../data/dashboardData";
+import { sidebarLinks } from "../../data/dashboardData";
+import { useDashboardStore } from "../../state/dashboardStore";
 
 const ACCENT = "#C85344";
 
@@ -36,7 +37,10 @@ const StatusBadge = ({ status }) => {
 
 const StatCard = ({ title, value, prefix, helper, icon }) => {
   const Icon = statIconRegistry[icon] || CalendarCheck;
-  const formattedValue = prefix ? `${prefix}${value.toLocaleString()}` : value.toLocaleString();
+  const safeValue = Number.isFinite(value) ? value : 0;
+  const formattedValue = prefix
+    ? `${prefix}${safeValue.toLocaleString()}`
+    : safeValue.toLocaleString();
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -54,9 +58,9 @@ const StatCard = ({ title, value, prefix, helper, icon }) => {
   );
 };
 
-const EarningsOverview = () => {
+const EarningsOverview = ({ data }) => {
   const [period, setPeriod] = useState("daily");
-  const chartData = earningsBreakdown[period] || [];
+  const chartData = data?.[period] || [];
 
   const periods = [
     { key: "daily", label: "Daily" },
@@ -114,69 +118,92 @@ const EarningsOverview = () => {
   );
 };
 
-const RecentBookings = () => (
-  <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-    <h3 className="mb-4 text-lg font-semibold text-gray-900">Recent Bookings</h3>
-    <div className="overflow-hidden rounded-xl border border-gray-100">
-      <div className="hidden md:block">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-[#FFF6F3] text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-6 py-3">Booking ID</th>
-              <th className="px-6 py-3">Customer</th>
-              <th className="px-6 py-3">Service</th>
-              <th className="px-6 py-3">Date</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {bookingRows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium text-gray-900">{row.id}</td>
-                <td className="px-6 py-4 text-gray-700">{row.customer}</td>
-                <td className="px-6 py-4 text-gray-700">{row.service}</td>
-                <td className="px-6 py-4 text-gray-500">{row.date}</td>
-                <td className="px-6 py-4">
-                  <StatusBadge status={row.status} />
-                </td>
-                <td className="px-6 py-4 text-right font-semibold text-gray-900">${row.amount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+const RecentBookings = ({ rows }) => {
+  const safeRows = rows || [];
 
-      <div className="grid gap-4 md:hidden">
-        {bookingRows.map((row) => (
-          <div key={row.id} className="rounded-xl border border-gray-100 p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">{row.id}</p>
-                <p className="text-xs text-gray-500">{row.date}</p>
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h3 className="mb-4 text-lg font-semibold text-gray-900">Recent Bookings</h3>
+      <div className="overflow-hidden rounded-xl border border-gray-100">
+        <div className="hidden md:block">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead className="bg-[#FFF6F3] text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-6 py-3">Booking ID</th>
+                <th className="px-6 py-3">Customer</th>
+                <th className="px-6 py-3">Service</th>
+                <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {safeRows.map((row) => (
+                <tr key={row.rawId || row.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">{row.id}</td>
+                  <td className="px-6 py-4 text-gray-700">{row.customer}</td>
+                  <td className="px-6 py-4 text-gray-700">{row.service}</td>
+                  <td className="px-6 py-4 text-gray-500">{row.date}</td>
+                  <td className="px-6 py-4">
+                    <StatusBadge status={row.status} />
+                  </td>
+                  <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                    ${row.amount.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+              {!safeRows.length && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-6 text-center text-gray-500">
+                    No recent bookings available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid gap-4 md:hidden">
+          {safeRows.map((row) => (
+            <div
+              key={row.rawId || row.id}
+              className="rounded-xl border border-gray-100 p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{row.id}</p>
+                  <p className="text-xs text-gray-500">{row.date}</p>
+                </div>
+                <StatusBadge status={row.status} />
               </div>
-              <StatusBadge status={row.status} />
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
+                <div>
+                  <p className="text-xs text-gray-500">Customer</p>
+                  <p className="font-medium">{row.customer}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Service</p>
+                  <p className="font-medium">{row.service}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Amount</p>
+                  <p className="font-semibold text-gray-900">
+                    ${row.amount.toLocaleString()}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
-              <div>
-                <p className="text-xs text-gray-500">Customer</p>
-                <p className="font-medium">{row.customer}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Service</p>
-                <p className="font-medium">{row.service}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Amount</p>
-                <p className="font-semibold text-gray-900">${row.amount}</p>
-              </div>
+          ))}
+          {!safeRows.length && (
+            <div className="rounded-xl border border-gray-100 p-4 text-center text-sm text-gray-500">
+              No recent bookings available.
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const SidebarPreview = () => (
   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:hidden">
@@ -199,19 +226,82 @@ const SidebarPreview = () => (
 );
 
 const Dashboard = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    stats,
+    earnings,
+    recentBookings,
+    isLoading,
+    error,
+    fetchOverview,
+    clearError,
+  } = useDashboardStore();
 
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+    fetchOverview().catch(() => {});
+    return () => clearError();
+  }, [fetchOverview, clearError]);
 
-  if (isLoading) {
+  const statCards = useMemo(
+    () => [
+      {
+        id: "bookings",
+        title: "Total Bookings",
+        value: Number.isFinite(stats?.totalBookings) ? stats.totalBookings : 0,
+        helper: "This week",
+        icon: "CalendarCheck",
+      },
+      {
+        id: "cleaners",
+        title: "Active Cleaners",
+        value: Number.isFinite(stats?.activeCleaners) ? stats.activeCleaners : 0,
+        helper: "On duty",
+        icon: "Users",
+      },
+      {
+        id: "revenue",
+        title: "Total Revenue",
+        value: Number.isFinite(stats?.totalRevenue) ? stats.totalRevenue : 0,
+        prefix: "$",
+        helper: "MTD",
+        icon: "BadgeDollarSign",
+      },
+    ],
+    [stats]
+  );
+
+  const earningsBreakdown = useMemo(
+    () => ({
+      daily: earnings?.daily || [],
+      weekly: earnings?.weekly || [],
+      monthly: earnings?.monthly || [],
+      yearly: earnings?.yearly || [],
+    }),
+    [earnings]
+  );
+
+  const bookingRows = useMemo(
+    () =>
+      (recentBookings || []).map((row) => {
+        const parsedAmount = Number(row.amount);
+        return {
+          ...row,
+          amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
+        };
+      }),
+    [recentBookings]
+  );
+
+  const hasData =
+    Boolean(stats) ||
+    bookingRows.length > 0 ||
+    Object.values(earningsBreakdown).some((list) => list.length > 0);
+
+  if (isLoading && !hasData) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-6 py-3 shadow-sm">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C85344] border-t-transparent" />
-          <span className="text-sm font-semibold text-gray-700">Loading dashboard�</span>
+          <span className="text-sm font-semibold text-gray-700">Loading dashboard...</span>
         </div>
       </div>
     );
@@ -220,13 +310,23 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <SidebarPreview />
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {isLoading && hasData && (
+        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
+          Refreshing dashboard...
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {statCards.map((card) => (
           <StatCard key={card.id} {...card} />
         ))}
       </div>
-      <EarningsOverview />
-      <RecentBookings />
+      <EarningsOverview data={earningsBreakdown} />
+      <RecentBookings rows={bookingRows} />
     </div>
   );
 };

@@ -8,6 +8,18 @@ import userPlaceholder from "../../assets/images/user-dummy.png";
 const pageMeta = {
   "/": { title: "Welcome Back, Admin", subtitle: "Today's Overview" },
   "/bookings": { title: "Bookings", subtitle: "Manage all bookings" },
+  "/bookings/residential": {
+    title: "Residential Bookings",
+    subtitle: "Manage residential quotes & bookings",
+  },
+  "/bookings/commercial": {
+    title: "Commercial Bookings",
+    subtitle: "Manage commercial quotes & bookings",
+  },
+  "/bookings/post-construction": {
+    title: "Post-Construction Bookings",
+    subtitle: "Manage post-construction quotes & bookings",
+  },
   "/users": { title: "Cleaners", subtitle: "Team roster" },
   "/pricing": { title: "Pricing", subtitle: "Plans & rates" },
   "/job-reports": { title: "Job Reports", subtitle: "Performance overview" },
@@ -15,6 +27,19 @@ const pageMeta = {
 };
 
 const getPageInfo = (pathname) => {
+  if (pathname.startsWith("/bookings/residential")) {
+    return pageMeta["/bookings/residential"];
+  }
+  if (pathname.startsWith("/bookings/commercial")) {
+    return pageMeta["/bookings/commercial"];
+  }
+  if (pathname.startsWith("/bookings/post-construction")) {
+    return pageMeta["/bookings/post-construction"];
+  }
+  if (pageMeta[pathname]) return pageMeta[pathname];
+  const exactLink = sidebarLinks.find((link) => link.href === pathname);
+  if (exactLink) return { title: exactLink.label, subtitle: "" };
+
   const basePath = pathname === "/" ? "/" : `/${pathname.split("/")[1] || ""}`;
   if (pageMeta[basePath]) return pageMeta[basePath];
 

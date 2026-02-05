@@ -2,6 +2,8 @@ export type SidebarLink = {
   label: string;
   href: string;
   icon: "LayoutDashboard" | "CalendarCheck" | "Users" | "BadgeDollarSign" | "FileText" | "Settings";
+  exact?: boolean;
+  activeExcludes?: string[];
 };
 
 export type StatCard = {
@@ -29,7 +31,31 @@ export type BookingRow = {
 
 export const sidebarLinks: SidebarLink[] = [
   { label: "Dashboard", href: "/", icon: "LayoutDashboard" },
-  { label: "Bookings", href: "/bookings", icon: "CalendarCheck" },
+  {
+    label: "Bookings",
+    href: "/bookings",
+    icon: "CalendarCheck",
+    activeExcludes: [
+      "/bookings/residential",
+      "/bookings/commercial",
+      "/bookings/post-construction",
+    ],
+  },
+  {
+    label: "Residential Bookings",
+    href: "/bookings/residential",
+    icon: "CalendarCheck",
+  },
+  {
+    label: "Commercial Bookings",
+    href: "/bookings/commercial",
+    icon: "CalendarCheck",
+  },
+  {
+    label: "Post-Construction Bookings",
+    href: "/bookings/post-construction",
+    icon: "CalendarCheck",
+  },
   {
     label: "Service Requests",
     href: "/service-requests",

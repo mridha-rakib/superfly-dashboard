@@ -13,13 +13,17 @@ import { NavLink } from "react-router-dom";
 const iconMap = {
   Dashboard: LayoutDashboard,
   Bookings: CalendarCheck,
+  "Residential Bookings": CalendarCheck,
+  "Commercial Bookings": CalendarCheck,
+  "Post-Construction Bookings": CalendarCheck,
+  "Service Requests": FileText,
   Cleaners: Users,
   Pricing: BadgeDollarSign,
   "Job Reports": FileText,
   Settings,
 };
 
-const SidebarItem = ({ item, isActive, onClick }) => {
+const SidebarItem = ({ item, isActive, onClick, exact }) => {
   const Icon = iconMap[item.label] || LayoutDashboard;
   const baseClasses = "flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition";
   const activeClasses = "bg-[#C85344]/10 text-[#C85344]";
@@ -28,12 +32,9 @@ const SidebarItem = ({ item, isActive, onClick }) => {
   return (
     <NavLink
       to={item.path ?? item.href}
-      end={item.href === "/"}
-      className={({ isActive: navActive }) =>
-        [
-          baseClasses,
-          navActive || isActive ? activeClasses : inactiveClasses,
-        ].join(" ")
+      end={Boolean(exact) || item.path === "/" || item.href === "/"}
+      className={() =>
+        [baseClasses, isActive ? activeClasses : inactiveClasses].join(" ")
       }
       onClick={onClick}
     >

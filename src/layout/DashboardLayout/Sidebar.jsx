@@ -16,6 +16,8 @@ const Sidebar = () => {
   const allMenuItems = sidebarLinks.map((link) => ({
     label: link.label,
     path: link.href,
+    exact: link.exact,
+    activeExcludes: link.activeExcludes,
   }));
 
   // Filter menu items based on user role
@@ -69,16 +71,21 @@ const Sidebar = () => {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
           {menuItems.map((item) => {
-            const isActive =
-              item.path === "/"
+            const isExcluded = (item.activeExcludes || []).some((exclude) =>
+              location.pathname.startsWith(exclude)
+            );
+            const isActive = item.exact
+              ? location.pathname === item.path
+              : item.path === "/"
                 ? location.pathname === "/"
-                : location.pathname.startsWith(item.path);
+                : location.pathname.startsWith(item.path) && !isExcluded;
 
             return (
               <SidebarItem
                 key={item.path}
                 item={item}
                 isActive={isActive}
+                exact={item.exact}
                 onClick={() => handleMenuClick(item.path)}
               />
             );

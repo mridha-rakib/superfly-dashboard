@@ -8,7 +8,16 @@ const Breadcrumb = () => {
 
   if (pathnames.length <= 1) return null;
 
-  const displayPathnames = pathnames.slice(0, 2);
+  const bookingCategoryMap = {
+    residential: "Residential Bookings",
+    commercial: "Commercial Bookings",
+    "post-construction": "Post-Construction Bookings",
+  };
+
+  const isBookingCategory =
+    pathnames[0] === "bookings" && bookingCategoryMap[pathnames[1]];
+
+  const displayPathnames = isBookingCategory ? [] : pathnames.slice(0, 2);
 
   const pathMap = {
     "": "Dashboard",
@@ -28,6 +37,48 @@ const Breadcrumb = () => {
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
   };
+
+  if (isBookingCategory) {
+    const categoryKey = pathnames[1];
+    const categoryLabel = bookingCategoryMap[categoryKey];
+    const crumbs = [
+      {
+        label: categoryLabel,
+        to: `/bookings/${categoryKey}`,
+      },
+    ];
+
+    if (pathnames.length > 2) {
+      crumbs.push({ label: "Details", to: null });
+    }
+
+    return (
+      <nav className="flex" aria-label="Breadcrumb">
+        <ol className="flex items-center space-x-2">
+          {crumbs.map((crumb, index) => {
+            const isLast = index === crumbs.length - 1;
+            return (
+              <li key={crumb.label} className="flex items-center">
+                <ChevronRight className="w-4 h-4" />
+                {isLast || !crumb.to ? (
+                  <span className="ml-2 text-sm font-medium text-gray-700">
+                    {crumb.label}
+                  </span>
+                ) : (
+                  <Link
+                    to={crumb.to}
+                    className="ml-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+                  >
+                    {crumb.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    );
+  }
 
   return (
     <nav className="flex" aria-label="Breadcrumb">

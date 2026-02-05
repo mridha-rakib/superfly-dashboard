@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
+import { formatTimeTo12Hour, parseTimeTo24Hour } from "../../lib/time-utils";
 import { useCleanerStore } from "../../state/cleanerStore";
 import { quoteApi } from "../../services/quoteApi";
 
@@ -13,6 +14,16 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#C85344] focus:ring-2 focus:ring-[#C85344]/20 transition";
 const sectionTitle = "text-xl font-semibold text-gray-900";
 const hintClass = "text-xs text-gray-500";
+const TIME_12H_PATTERN = /^\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\s*$/i;
+
+const normalize12HourTime = (value) => {
+  if (!value) return "";
+  const trimmed = value.toString().trim();
+  if (!TIME_12H_PATTERN.test(trimmed)) return null;
+  const normalized24 = parseTimeTo24Hour(trimmed);
+  if (!normalized24) return null;
+  return formatTimeTo12Hour(normalized24);
+};
 
 const CreateBooking = () => {
   const navigate = useNavigate();
@@ -78,6 +89,24 @@ const CreateBooking = () => {
     setErrors((prev) => ({ ...prev, [e.target.name]: null }));
   };
 
+  const handleTimeBlur = (field) => (e) => {
+    const value = e.target.value;
+    if (!value) {
+      setErrors((prev) => ({ ...prev, [field]: null }));
+      return;
+    }
+    const normalized = normalize12HourTime(value);
+    if (!normalized) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: "Use 12-hour format (e.g., 9:30 AM).",
+      }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [field]: normalized }));
+    setErrors((prev) => ({ ...prev, [field]: null }));
+  };
+
   const filteredCleaners = useMemo(() => {
     if (!cleanerSearch.trim()) return cleaners;
     const q = cleanerSearch.toLowerCase();
@@ -129,6 +158,27 @@ const CreateBooking = () => {
         throw new Error("Only Commercial and Post-Construction are supported.");
       }
 
+      const normalizedStart = normalize12HourTime(formData.startTime);
+      const normalizedEnd = formData.endTime
+        ? normalize12HourTime(formData.endTime)
+        : "";
+
+      if (!normalizedStart) {
+        setErrors((prev) => ({
+          ...prev,
+          startTime: "Use 12-hour format (e.g., 9:30 AM).",
+        }));
+        throw new Error("Preferred Time must be in 12-hour format.");
+      }
+
+      if (formData.endTime && !normalizedEnd) {
+        setErrors((prev) => ({
+          ...prev,
+          endTime: "Use 12-hour format (e.g., 6:00 PM).",
+        }));
+        throw new Error("End Time must be in 12-hour format.");
+      }
+
       const businessAddress = [formData.address, formData.city]
         .filter(Boolean)
         .join(", ")
@@ -142,7 +192,7 @@ const CreateBooking = () => {
         phoneNumber: formData.phone,
         businessAddress,
         preferredDate: formData.preferredDate,
-        preferredTime: formData.startTime,
+        preferredTime: normalizedStart,
         specialRequest: formData.jobNote?.trim() || "N/A",
         squareFoot: formData.squareFoot,
         totalPrice: Number(formData.totalPrice) || undefined,
@@ -366,23 +416,33 @@ const CreateBooking = () => {
           <div>
             <label className={labelClass}>Start Time</label>
             <input
-              type="time"
+              type="text"
               name="startTime"
               value={formData.startTime}
               onChange={handleChange}
+              onBlur={handleTimeBlur("startTime")}
               className={inputClass}
+              placeholder="e.g., 9:30 AM"
             />
+            {errors.startTime && (
+              <p className="mt-1 text-xs text-red-600">{errors.startTime}</p>
+            )}
           </div>
 
           <div>
             <label className={labelClass}>End Time</label>
             <input
-              type="time"
+              type="text"
               name="endTime"
               value={formData.endTime}
               onChange={handleChange}
+              onBlur={handleTimeBlur("endTime")}
               className={inputClass}
+              placeholder="e.g., 6:00 PM"
             />
+            {errors.endTime && (
+              <p className="mt-1 text-xs text-red-600">{errors.endTime}</p>
+            )}
           </div>
 
         </div>
@@ -404,7 +464,7 @@ const CreateBooking = () => {
               </div>
               <div className="max-h-52 overflow-y-auto divide-y divide-gray-100">
                 {isLoadingList ? (
-                  <div className="px-4 py-3 text-sm text-gray-500">Loading cleaners…</div>
+                  <div className="px-4 py-3 text-sm text-gray-500">Loading cleaners...</div>
                 ) : filteredCleaners.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">No cleaners found.</div>
                 ) : (

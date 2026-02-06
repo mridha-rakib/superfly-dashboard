@@ -256,7 +256,16 @@ function Booking({ presetService }) {
   }, [clearCleanerError]);
 
   const filtered = useMemo(() => {
-    return (quotes || [])
+    const cleanedQuotes = (quotes || []).filter((q) => {
+      const serviceType = (q.serviceType || "").toLowerCase();
+      const createdByRole = (q.createdByRole || "").toLowerCase();
+      const isAdminCreatedManual =
+        (serviceType === "commercial" || serviceType === "post_construction") &&
+        (createdByRole === "admin" || createdByRole === "super_admin");
+      return !isAdminCreatedManual;
+    });
+
+    return cleanedQuotes
       .map((q) => {
         const displayStatus = mapStatusLabel(q);
         const serviceLabel = mapServiceLabel(q.serviceType);

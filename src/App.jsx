@@ -116,6 +116,8 @@ function App() {
           <Route path="bookings/:id" element={<ViewBooking />} />
           <Route path="bookings/:id/edit" element={<EditBooking />} />
           <Route path="service-requests" element={<ServiceRequests />} />
+          <Route path="service-requests/add" element={<CreateBooking />} />
+          <Route path="service-requests/:id" element={<ViewBooking />} />
           <Route path="users" element={<Users />} />
           <Route path="users/add" element={<CreateUser />} />
           <Route path="users/:id" element={<ViewUser />} />

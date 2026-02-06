@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronDown } from "lucide-react";
 import { toast } from "react-toastify";
 import { useQuoteStore } from "../../state/quoteStore";
 
 const manualTypes = ["commercial", "post_construction"];
+const adminRoles = new Set(["admin", "super_admin"]);
 
 const statusBadge = (status = "pending") => {
   const map = {
@@ -31,6 +32,15 @@ function ServiceRequests() {
   const requests = (quotes || []).filter((q) =>
     manualTypes.includes(q.serviceType)
   );
+  const adminCreatedRequests = requests.filter((q) =>
+    adminRoles.has((q.createdByRole || "").toLowerCase())
+  );
+  const commercialRequests = adminCreatedRequests.filter(
+    (q) => q.serviceType === "commercial"
+  );
+  const postConstructionRequests = adminCreatedRequests.filter(
+    (q) => q.serviceType === "post_construction"
+  );
 
   const handleCreate = (type) => {
     setShowCreateMenu(false);
@@ -38,7 +48,7 @@ function ServiceRequests() {
       toast.warn("Admin cannot create Residential Cleaning bookings.");
       return;
     }
-    navigate(`/bookings/add?type=${encodeURIComponent(type)}`);
+    navigate(`/service-requests/add?type=${encodeURIComponent(type)}`);
   };
 
   const createOptions = [
@@ -96,7 +106,7 @@ function ServiceRequests() {
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Requests</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Commercial Requests</h2>
           {isLoading && (
             <span className="text-sm text-gray-500">Loading...</span>
           )}
@@ -106,50 +116,110 @@ function ServiceRequests() {
         </div>
 
         <div className="divide-y divide-gray-100">
-          {requests.length === 0 && !isLoading ? (
+          {commercialRequests.length === 0 && !isLoading ? (
             <p className="px-6 py-6 text-sm text-gray-600">
-              No service requests found.
+              No commercial service requests found.
             </p>
           ) : (
-            requests.map((quote) => (
-              <div
-                key={quote._id}
-                className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">
-                    Booking ID:{" "}
-                    <span className="font-semibold text-gray-800">
-                      {quote._id}
+            commercialRequests.map((quote) => {
+              const quoteId = quote._id || quote.id;
+              return (
+                <div
+                  key={quoteId}
+                  className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">
+                      Booking ID:{" "}
+                      <span className="font-semibold text-gray-800">
+                        {quoteId}
+                      </span>
+                    </p>
+                    <p className="text-base font-semibold text-gray-900">
+                      {quote.companyName || quote.contactName || "Client"}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Commercial - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
+                        quote.status
+                      )}`}
+                    >
+                      {quote.status || "pending"}
                     </span>
-                  </p>
-                  <p className="text-base font-semibold text-gray-900">
-                    {quote.companyName || quote.contactName || "Client"}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {quote.serviceType === "commercial"
-                      ? "Commercial"
-                      : "Post-Construction"}{" "}
-                    • {quote.serviceDate || "-"} • {quote.preferredTime || "-"}
-                  </p>
+                    <Link
+                      to={`/service-requests/${quoteId}`}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition"
+                    >
+                      View
+                    </Link>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
-                      quote.status
-                    )}`}
-                  >
-                    {quote.status || "pending"}
-                  </span>
-                  <Link
-                    to={`/bookings/${quote._id}`}
-                    className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition"
-                  >
-                    View
-                  </Link>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Post-Construction Requests</h2>
+          {isLoading && (
+            <span className="text-sm text-gray-500">Loading...</span>
+          )}
+          {error && (
+            <span className="text-sm text-red-500">Error: {error}</span>
+          )}
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {postConstructionRequests.length === 0 && !isLoading ? (
+            <p className="px-6 py-6 text-sm text-gray-600">
+              No post-construction service requests found.
+            </p>
+          ) : (
+            postConstructionRequests.map((quote) => {
+              const quoteId = quote._id || quote.id;
+              return (
+                <div
+                  key={quoteId}
+                  className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">
+                      Booking ID:{" "}
+                      <span className="font-semibold text-gray-800">
+                        {quoteId}
+                      </span>
+                    </p>
+                    <p className="text-base font-semibold text-gray-900">
+                      {quote.companyName || quote.contactName || "Client"}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Post-Construction - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
+                        quote.status
+                      )}`}
+                    >
+                      {quote.status || "pending"}
+                    </span>
+                    <Link
+                      to={`/service-requests/${quoteId}`}
+                      className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition"
+                    >
+                      View
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>

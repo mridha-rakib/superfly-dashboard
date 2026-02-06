@@ -1,6 +1,6 @@
 import { Filter, PieChart, Users as UsersIcon, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
 import { formatTimeTo12Hour, parseTimeTo24Hour } from "../../lib/time-utils";
@@ -15,6 +15,16 @@ const inputClass =
 const sectionTitle = "text-xl font-semibold text-gray-900";
 const hintClass = "text-xs text-gray-500";
 const TIME_12H_PATTERN = /^\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\s*$/i;
+const commercialServiceOptions = [
+  { label: "Janitorial Services", value: "janitorial_services" },
+  { label: "Carpet Cleaning", value: "carpet_cleaning" },
+  { label: "Window Cleaning", value: "window_cleaning" },
+  { label: "Pressure Washing", value: "pressure_washing" },
+  { label: "Floor Cleaning", value: "floor_cleaning" },
+];
+const commercialServiceValues = new Set(
+  commercialServiceOptions.map((opt) => opt.value)
+);
 
 const normalize12HourTime = (value) => {
   if (!value) return "";
@@ -25,8 +35,35 @@ const normalize12HourTime = (value) => {
   return formatTimeTo12Hour(normalized24);
 };
 
+const normalizeCleaningServices = (services) => {
+  if (!services || services.length === 0) return [];
+  const normalized = services
+    .map((service) => {
+      if (!service) return null;
+      const matchByValue = commercialServiceOptions.find(
+        (opt) => opt.value === service
+      );
+      if (matchByValue) return matchByValue.value;
+      const matchByLabel = commercialServiceOptions.find(
+        (opt) => opt.label === service
+      );
+      if (matchByLabel) return matchByLabel.value;
+      const normalizedValue = service
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+      return commercialServiceValues.has(normalizedValue)
+        ? normalizedValue
+        : null;
+    })
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
 const CreateBooking = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     // 1. Customer Info
     businessName: "",
@@ -39,11 +76,13 @@ const CreateBooking = () => {
     serviceType: "",
     squareFoot: "",
     cleaningFrequency: "one-time",
+    cleaningServices: [],
+    generalContractorName: "",
+    generalContractorPhone: "",
 
     // 3. Scheduling
     preferredDate: "",
-    startTime: "",
-    endTime: "",
+    preferredTime: "",
     assignedCleaner: "",
     jobNote: "",
 
@@ -59,6 +98,8 @@ const CreateBooking = () => {
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cleanerSearch, setCleanerSearch] = useState("");
+  const isCommercial = formData.serviceType === "commercial";
+  const isPostConstruction = formData.serviceType === "post_construction";
 
   const {
     cleaners,
@@ -76,6 +117,31 @@ const CreateBooking = () => {
   }, [fetchCleaners, clearError]);
 
   useEffect(() => {
+    const typeParam = searchParams.get("type");
+    if (!typeParam) return;
+    const normalized = typeParam.toLowerCase();
+    let nextType = null;
+    if (normalized.includes("commercial")) nextType = "commercial";
+    if (normalized.includes("post")) nextType = "post_construction";
+    if (!nextType) return;
+    setFormData((prev) =>
+      prev.serviceType ? prev : { ...prev, serviceType: nextType }
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!formData.cleaningServices.length) return;
+    const normalized = normalizeCleaningServices(formData.cleaningServices);
+    if (normalized.length === 0) return;
+    if (
+      normalized.length !== formData.cleaningServices.length ||
+      normalized.some((value) => !formData.cleaningServices.includes(value))
+    ) {
+      setFormData((prev) => ({ ...prev, cleaningServices: normalized }));
+    }
+  }, [formData.cleaningServices]);
+
+  useEffect(() => {
     if (cleanerError) {
       toast.error(cleanerError);
     }
@@ -87,6 +153,16 @@ const CreateBooking = () => {
       [e.target.name]: e.target.value,
     }));
     setErrors((prev) => ({ ...prev, [e.target.name]: null }));
+  };
+
+  const toggleCleaningService = (service) => {
+    setFormData((prev) => {
+      const next = prev.cleaningServices.includes(service)
+        ? prev.cleaningServices.filter((s) => s !== service)
+        : [...prev.cleaningServices, service];
+      return { ...prev, cleaningServices: next };
+    });
+    setErrors((prev) => ({ ...prev, cleaningServices: null }));
   };
 
   const handleTimeBlur = (field) => (e) => {
@@ -136,12 +212,34 @@ const CreateBooking = () => {
     setSubmitError("");
     try {
       const missingFields = [];
-      if (!formData.businessName.trim()) missingFields.push("Business Name");
-      if (!formData.email.trim()) missingFields.push("Email");
-      if (!formData.phone.trim()) missingFields.push("Phone");
-      if (!formData.address.trim()) missingFields.push("Address");
+      if (!formData.businessName.trim()) {
+        missingFields.push(
+          isCommercial || isPostConstruction ? "Company Name" : "Business Name"
+        );
+      }
+      if (!formData.email.trim()) {
+        missingFields.push(isCommercial ? "Company Email" : "Email Address");
+      }
+      if (!formData.phone.trim()) {
+        missingFields.push(
+          isCommercial ? "Company Phone Number" : "Phone Number"
+        );
+      }
+      if (isPostConstruction) {
+        if (!formData.city.trim()) {
+          missingFields.push("Site Address");
+        }
+      } else if (!formData.address.trim()) {
+        missingFields.push(isCommercial ? "Company Address" : "Address");
+      }
+      if (isPostConstruction && !formData.generalContractorName.trim()) {
+        missingFields.push("General Contractor Name");
+      }
+      if (isPostConstruction && !formData.generalContractorPhone.trim()) {
+        missingFields.push("General Contractor Contact Number");
+      }
       if (!formData.preferredDate) missingFields.push("Preferred Date");
-      if (!formData.startTime) missingFields.push("Preferred Time");
+      if (!formData.preferredTime) missingFields.push("Preferred Time");
 
       if (missingFields.length) {
         throw new Error(`Please fill: ${missingFields.join(", ")}`);
@@ -158,31 +256,31 @@ const CreateBooking = () => {
         throw new Error("Only Commercial and Post-Construction are supported.");
       }
 
-      const normalizedStart = normalize12HourTime(formData.startTime);
-      const normalizedEnd = formData.endTime
-        ? normalize12HourTime(formData.endTime)
-        : "";
+      const normalizedCleaningServices = normalizeCleaningServices(
+        formData.cleaningServices
+      );
 
-      if (!normalizedStart) {
+      if (formData.serviceType === "commercial" && !normalizedCleaningServices.length) {
         setErrors((prev) => ({
           ...prev,
-          startTime: "Use 12-hour format (e.g., 9:30 AM).",
+          cleaningServices: "Select at least one cleaning service.",
+        }));
+        throw new Error("Select at least one cleaning service.");
+      }
+
+      const normalizedTime = normalize12HourTime(formData.preferredTime);
+
+      if (!normalizedTime) {
+        setErrors((prev) => ({
+          ...prev,
+          preferredTime: "Use 12-hour format (e.g., 9:30 AM).",
         }));
         throw new Error("Preferred Time must be in 12-hour format.");
       }
 
-      if (formData.endTime && !normalizedEnd) {
-        setErrors((prev) => ({
-          ...prev,
-          endTime: "Use 12-hour format (e.g., 6:00 PM).",
-        }));
-        throw new Error("End Time must be in 12-hour format.");
-      }
-
-      const businessAddress = [formData.address, formData.city]
-        .filter(Boolean)
-        .join(", ")
-        .trim();
+      const businessAddress = isPostConstruction
+        ? formData.city.trim()
+        : [formData.address, formData.city].filter(Boolean).join(", ").trim();
 
       const payload = {
         serviceType: formData.serviceType,
@@ -192,13 +290,20 @@ const CreateBooking = () => {
         phoneNumber: formData.phone,
         businessAddress,
         preferredDate: formData.preferredDate,
-        preferredTime: normalizedStart,
+        preferredTime: normalizedTime,
         specialRequest: formData.jobNote?.trim() || "N/A",
         squareFoot: formData.squareFoot,
         totalPrice: Number(formData.totalPrice) || undefined,
         cleanerPrice: Number(formData.cleanerPrice) || undefined,
         assignedCleanerIds: formData.assignedCleaners,
-        cleaningFrequency: formData.cleaningFrequency,
+        cleaningFrequency: isPostConstruction
+          ? undefined
+          : formData.cleaningFrequency,
+        cleaningServices: normalizedCleaningServices.length
+          ? normalizedCleaningServices
+          : undefined,
+        generalContractorName: formData.generalContractorName?.trim() || undefined,
+        generalContractorPhone: formData.generalContractorPhone?.trim() || undefined,
       };
 
       payload.preferredDate = payload.preferredDate
@@ -220,7 +325,10 @@ const CreateBooking = () => {
       await quoteApi.createAdminServiceRequest(payload);
 
       toast.success("Booking created");
-      navigate("/bookings");
+      const isManualRequest =
+        formData.serviceType === "commercial" ||
+        formData.serviceType === "post_construction";
+      navigate(isManualRequest ? "/service-requests" : "/bookings");
     } catch (err) {
       const raw = err?.response?.data;
       const msg =
@@ -266,7 +374,9 @@ const CreateBooking = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>Business Name</label>
+            <label className={labelClass}>
+              {isCommercial || isPostConstruction ? "Company Name" : "Business Name"}
+            </label>
             <input
               type="text"
               name="businessName"
@@ -276,7 +386,9 @@ const CreateBooking = () => {
             />
           </div>
           <div>
-            <label className={labelClass}>Email Address</label>
+            <label className={labelClass}>
+              {isCommercial ? "Company Email" : "Email Address"}
+            </label>
             <input
               type="email"
               name="email"
@@ -286,7 +398,9 @@ const CreateBooking = () => {
             />
           </div>
           <div>
-            <label className={labelClass}>Phone</label>
+            <label className={labelClass}>
+              {isCommercial ? "Company Phone Number" : "Phone Number"}
+            </label>
             <input
               type="text"
               name="phone"
@@ -296,7 +410,9 @@ const CreateBooking = () => {
             />
           </div>
           <div>
-            <label className={labelClass}>City / Area</label>
+            <label className={labelClass}>
+              {isPostConstruction ? "Site Address" : "City / Area"}
+            </label>
             <input
               type="text"
               name="city"
@@ -305,16 +421,20 @@ const CreateBooking = () => {
               className={inputClass}
             />
           </div>
-          <div className="md:col-span-2">
-            <label className={labelClass}>Address</label>
-            <input
-              type="text"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              className={inputClass}
-            />
-          </div>
+          {!isPostConstruction && (
+            <div className="md:col-span-2">
+              <label className={labelClass}>
+                {isCommercial ? "Company Address" : "Address"}
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -348,7 +468,11 @@ const CreateBooking = () => {
           </div>
 
           <div>
-            <label className={labelClass}>Square Foot</label>
+            <label className={labelClass}>
+              {isPostConstruction
+                ? "Total Square Footage (sq ft)"
+                : "Building Size (sq ft)"}
+            </label>
             <input
               type="number"
               name="squareFoot"
@@ -360,31 +484,96 @@ const CreateBooking = () => {
           </div>
         </div>
 
-        <div className="mt-2">
-          <label className="block mb-3 font-medium text-gray-900">
-            Cleaning Frequency
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {["one-time", "weekly", "bi-weekly", "monthly"].map((freq) => (
-              <button
-                key={freq}
-                type="button"
-                onClick={() =>
-                  handleChange({
-                    target: { name: "cleaningFrequency", value: freq },
-                  })
-                }
-                className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${
-                  formData.cleaningFrequency === freq
-                    ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                {freq.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-              </button>
-            ))}
+        {!isPostConstruction && (
+          <div className="mt-2">
+            <label className="block mb-3 font-medium text-gray-900">
+              Cleaning Frequency
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {["one-time", "weekly", "bi-weekly", "monthly"].map((freq) => (
+                <button
+                  key={freq}
+                  type="button"
+                  onClick={() =>
+                    handleChange({
+                      target: { name: "cleaningFrequency", value: freq },
+                    })
+                  }
+                  className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${
+                    formData.cleaningFrequency === freq
+                      ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {freq.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {formData.serviceType === "commercial" && (
+          <div className="mt-6">
+            <label className="block mb-3 font-medium text-gray-900">
+              Type of Cleaning Services
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {commercialServiceOptions.map((serviceOption) => {
+                const checked = formData.cleaningServices.includes(
+                  serviceOption.value
+                );
+                return (
+                  <label
+                    key={serviceOption.value}
+                    className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                      checked
+                        ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCleaningService(serviceOption.value)}
+                      className="h-4 w-4 accent-[#C85344]"
+                    />
+                    {serviceOption.label}
+                  </label>
+                );
+              })}
+            </div>
+            {errors.cleaningServices && (
+              <p className="mt-2 text-xs text-red-600">{errors.cleaningServices}</p>
+            )}
+          </div>
+        )}
+
+        {isPostConstruction && (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>General Contractor Name</label>
+              <input
+                type="text"
+                name="generalContractorName"
+                value={formData.generalContractorName}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>
+                General Contractor Contact Number
+              </label>
+              <input
+                type="text"
+                name="generalContractorPhone"
+                value={formData.generalContractorPhone}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Scheduling */}
@@ -414,37 +603,20 @@ const CreateBooking = () => {
           </div>
 
           <div>
-            <label className={labelClass}>Start Time</label>
+            <label className={labelClass}>Preferred Time</label>
             <input
               type="text"
-              name="startTime"
-              value={formData.startTime}
+              name="preferredTime"
+              value={formData.preferredTime}
               onChange={handleChange}
-              onBlur={handleTimeBlur("startTime")}
+              onBlur={handleTimeBlur("preferredTime")}
               className={inputClass}
               placeholder="e.g., 9:30 AM"
             />
-            {errors.startTime && (
-              <p className="mt-1 text-xs text-red-600">{errors.startTime}</p>
+            {errors.preferredTime && (
+              <p className="mt-1 text-xs text-red-600">{errors.preferredTime}</p>
             )}
           </div>
-
-          <div>
-            <label className={labelClass}>End Time</label>
-            <input
-              type="text"
-              name="endTime"
-              value={formData.endTime}
-              onChange={handleChange}
-              onBlur={handleTimeBlur("endTime")}
-              className={inputClass}
-              placeholder="e.g., 6:00 PM"
-            />
-            {errors.endTime && (
-              <p className="mt-1 text-xs text-red-600">{errors.endTime}</p>
-            )}
-          </div>
-
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
@@ -581,7 +753,9 @@ const CreateBooking = () => {
         </div>
 
         <div className="mt-4">
-          <label className={labelClass}>Job Note</label>
+          <label className={labelClass}>
+            {isCommercial || isPostConstruction ? "Special Request" : "Job Note"}
+          </label>
           <textarea
             name="jobNote"
             value={formData.jobNote}

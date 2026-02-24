@@ -1,7 +1,7 @@
 // src/pages/auth/VerifyOtp.jsx
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-// import crisisLogo from "../../assets/logos/crisis-logo.svg";
+import superflyLogo from "../../assets/superfly_logo.svg";
 
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
@@ -53,7 +53,7 @@ const VerifyCode = () => {
           {/* Header */}
           <div className="mb-8">
             <div className="flex justify-center mb-6">
-              <img src="/logo.png" alt="Superfly Logo" className="w-24 h-24" />
+              <img src={superflyLogo} alt="Superfly Logo" className="w-24 h-24" />
             </div>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2 text-center">
               Verify Code

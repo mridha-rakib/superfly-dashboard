@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft02Icon } from "@hugeicons/core-free-icons";
+import superflyLogo from "../../assets/superfly_logo.svg";
 import tick from "../../assets/Vector.svg";
 
 function Successful() {
@@ -18,7 +19,7 @@ function Successful() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex justify-center mb-6">
-              <img src="logo.png" alt="Superfly Logo" className="w-24 h-24" />
+              <img src={superflyLogo} alt="Superfly Logo" className="w-24 h-24" />
             </div>
             <div className="flex justify-center">
               <img src={tick} alt="Tick" className="w-16 h-16" />

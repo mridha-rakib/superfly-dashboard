@@ -6,6 +6,7 @@ import { sidebarLinks } from "../../data/dashboardData";
 import SidebarItem from "./SidebarItem";
 import { useAuthStore } from "../../state/authStore";
 import { toast } from "react-toastify";
+import superflyLogo from "../../assets/superfly_logo.svg";
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const Sidebar = () => {
   }));
 
   // Filter menu items based on user role
-  const menuItems = allMenuItems.filter((item) => {
+  const menuItems = allMenuItems.filter(() => {
     return true;
   });
 
@@ -34,7 +35,7 @@ const Sidebar = () => {
     try {
       await logout();
       toast.success("You have been signed out");
-    } catch (error) {
+    } catch {
       toast.error("Sign out failed. Please try again.");
     }
 
@@ -58,8 +59,17 @@ const Sidebar = () => {
           isOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 lg:relative lg:z-auto`}
       >
-        <div className="relative flex items-center justify-between px-5 py-6">
-          <span className="text-lg font-semibold text-gray-900">Dashboard</span>
+        <div className="relative flex items-center justify-between px-5 py-6 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src={superflyLogo}
+              alt="Superfly Logo"
+              className="h-10 w-10 rounded-md object-contain"
+            />
+            <span className="text-lg font-semibold text-gray-900 truncate">
+              Dashboard
+            </span>
+          </div>
           <button
             className="rounded-md p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
             onClick={() => setIsOpen(false)}

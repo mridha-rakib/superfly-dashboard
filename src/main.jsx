@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
+import AdminQuoteCreatedNotifications from "./realtime/AdminQuoteCreatedNotifications.jsx";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./state/authStore";
@@ -10,6 +11,7 @@ import "./state/authStore";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
+    <AdminQuoteCreatedNotifications />
     <App />
     <ToastContainer
       position="top-center"

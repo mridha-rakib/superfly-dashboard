@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import superflyLogo from "../../assets/superfly_logo.svg";
 
 function Register() {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ function Register() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <img src="/logo.png" alt="Superfly Logo" className="w-36 h-36" />
+          <img src={superflyLogo} alt="Superfly Logo" className="w-36 h-36" />
         </div>
 
         <h2 className="text-center text-3xl font-extrabold text-gray-900">

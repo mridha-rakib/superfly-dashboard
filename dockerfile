@@ -1,25 +1,25 @@
-# Use Node.js image for building
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+ARG VITE_BASE_URL=http://localhost:8080/api/v1
+ARG VITE_NODE_ENV=production
 
-# Install dependencies
+ENV VITE_BASE_URL=${VITE_BASE_URL}
+ENV VITE_NODE_ENV=${VITE_NODE_ENV}
+
+COPY package*.json ./
 RUN npm install
 
 COPY . .
-
-# Build React app
 RUN npm run build
 
-# Serve using a lightweight web server
-FROM nginx:alpine
 
-# Copy build to Nginx
+FROM nginx:1.27-alpine AS runner
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port 3000
-EXPOSE 3000
+EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

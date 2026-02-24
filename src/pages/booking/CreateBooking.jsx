@@ -296,9 +296,7 @@ const CreateBooking = () => {
         totalPrice: Number(formData.totalPrice) || undefined,
         cleanerPrice: Number(formData.cleanerPrice) || undefined,
         assignedCleanerIds: formData.assignedCleaners,
-        cleaningFrequency: isPostConstruction
-          ? undefined
-          : formData.cleaningFrequency,
+        cleaningFrequency: formData.cleaningFrequency,
         cleaningServices: normalizedCleaningServices.length
           ? normalizedCleaningServices
           : undefined,
@@ -484,13 +482,13 @@ const CreateBooking = () => {
           </div>
         </div>
 
-        {!isPostConstruction && (
+        {(isCommercial || isPostConstruction) && (
           <div className="mt-2">
             <label className="block mb-3 font-medium text-gray-900">
               Cleaning Frequency
             </label>
             <div className="flex flex-wrap gap-3">
-              {["one-time", "weekly", "bi-weekly", "monthly"].map((freq) => (
+              {["one-time", "weekly", "monthly"].map((freq) => (
                 <button
                   key={freq}
                   type="button"

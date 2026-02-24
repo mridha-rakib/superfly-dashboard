@@ -12,6 +12,7 @@ const statusStyles = {
   "On Site": "bg-orange-50 text-orange-700 border-orange-200",
   "Report Submitted": "bg-purple-50 text-purple-700 border-purple-200",
   Completed: "bg-green-50 text-green-700 border-green-200",
+  Closed: "bg-gray-100 text-gray-700 border-gray-300",
   Accepted: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Rejected: "bg-red-50 text-red-700 border-red-200",
 };
@@ -77,6 +78,7 @@ const mapStatusLabel = (quote) => {
 
   if (status === "reviewed") return "Accepted";
   if (status === "contacted") return "Rejected";
+  if (status === "closed") return "Closed";
 
   switch (normalized) {
     case "assigned":
@@ -85,6 +87,8 @@ const mapStatusLabel = (quote) => {
       return "On Site";
     case "report_submitted":
       return "Report Submitted";
+    case "closed":
+      return "Closed";
     case "completed":
       return "Completed";
     default:
@@ -115,6 +119,7 @@ const toApiStatus = (filterStatus) => {
   if (normalized === "on site") return "on_site";
   if (normalized === "report submitted") return "report_submitted";
   if (normalized === "completed") return "completed";
+  if (normalized === "closed") return "closed";
   return undefined;
 };
 
@@ -709,7 +714,7 @@ function Booking({ presetService }) {
               }}
               className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
-              {["All", "Ongoing", "Pending", "In Progress", "Complete"].map((s) => (
+              {["All", "Ongoing", "Pending", "In Progress", "Complete", "Closed"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>

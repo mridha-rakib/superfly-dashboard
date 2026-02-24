@@ -17,6 +17,7 @@ import SetNewPassword from "./pages/auth/SetNewPassword";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import Successful from "./pages/auth/Successful";
 import Dashboard from "./pages/dashboard/Dashboard";
+import EarningsAnalytics from "./pages/dashboard/EarningsAnalytics";
 import Booking from "./pages/booking/Booking";
 import CreateBooking from "./pages/booking/CreateBooking";
 import ViewBooking from "./pages/booking/ViewBooking";
@@ -87,6 +88,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="earnings-analytics" element={<EarningsAnalytics />} />
           <Route path="bookings" element={<Booking />} />
           <Route
             path="bookings/residential"

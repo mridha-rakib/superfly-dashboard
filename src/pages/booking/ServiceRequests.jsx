@@ -14,6 +14,7 @@ const statusBadge = (status = "pending") => {
     admin_notified: "bg-blue-100 text-blue-800",
     reviewed: "bg-indigo-100 text-indigo-800",
     contacted: "bg-purple-100 text-purple-800",
+    closed: "bg-gray-200 text-gray-800",
     paid: "bg-green-100 text-green-800",
     completed: "bg-emerald-100 text-emerald-800",
   };

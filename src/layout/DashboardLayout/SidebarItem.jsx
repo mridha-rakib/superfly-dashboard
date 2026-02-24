@@ -19,6 +19,7 @@ const iconMap = {
   "Service Requests": FileText,
   Cleaners: Users,
   Pricing: BadgeDollarSign,
+  "Earnings Analytics": BadgeDollarSign,
   "Job Reports": FileText,
   Settings,
 };

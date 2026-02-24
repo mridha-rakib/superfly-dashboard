@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { useQuoteStore } from "../../state/quoteStore";
@@ -12,6 +12,7 @@ const statusColors = {
   "On Site": "bg-orange-100 text-orange-800",
   "Report Submitted": "bg-purple-100 text-purple-800",
   Completed: "bg-green-100 text-green-800",
+  Closed: "bg-gray-200 text-gray-800",
 };
 
 const paymentColors = {
@@ -41,6 +42,8 @@ const mapStatusLabel = (quote) => {
       return "On Site";
     case "report_submitted":
       return "Report Submitted";
+    case "closed":
+      return "Closed";
     case "completed":
       return "Completed";
     default:
@@ -74,10 +77,15 @@ const formatDateTimeValue = (value) => {
   });
 };
 
+const parseActionError = (err, fallback) =>
+  err?.response?.data?.message ||
+  err?.response?.data?.error ||
+  err?.message ||
+  fallback;
+
 function ViewBooking() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const {
     selectedQuote,
     isLoadingDetail,
@@ -107,11 +115,6 @@ function ViewBooking() {
       ? selectedQuote
       : null;
   const quoteId = quote?._id || quote?.id;
-  const [pendingStatus, setPendingStatus] = useState(null);
-
-  useEffect(() => {
-    setPendingStatus(null);
-  }, [quoteId]);
 
   if (isLoadingDetail) {
     return (
@@ -127,7 +130,7 @@ function ViewBooking() {
     );
   }
 
-  if (error || !quote) {
+  if (!quote) {
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
         <h2 className="text-2xl font-semibold text-red-600 mb-4">
@@ -149,16 +152,14 @@ function ViewBooking() {
   const serviceType = (quote.serviceType || "").toLowerCase();
   const isManualService =
     serviceType === "commercial" || serviceType === "post_construction";
-  const isAdminCreated =
-    (quote.createdByRole || "").toLowerCase() === "admin" ||
-    (quote.createdByRole || "").toLowerCase() === "super_admin";
-  const hideDecisionSection =
-    (isManualService && isAdminCreated) ||
-    location.pathname.startsWith("/service-requests");
+  const isClosed = (quote.status || "").toLowerCase() === "closed";
+  const canCloseManualBooking =
+    isManualService && !isClosed && (quote.status || "").toLowerCase() !== "completed";
   const commercialDecision = (() => {
     const status = (quote.status || "").toLowerCase();
     if (status === "reviewed") return "Accepted";
     if (status === "contacted") return "Rejected";
+    if (status === "closed") return "Closed";
     return "Pending";
   })();
   const bookingIdLabel = quote._id || quote.id || "-";
@@ -321,18 +322,18 @@ function ViewBooking() {
     quote.city ||
     "-";
 
-  const handleDecision = async (statusValue) => {
+  const handleCloseBooking = async () => {
     if (!quoteId) return;
-    const isAccept = statusValue === "reviewed";
-    const isReject = statusValue === "contacted";
-    setPendingStatus(isAccept ? "accepted" : isReject ? "rejected" : null);
+    const confirmed = window.confirm(
+      "Close this booking? Future cleaner reminder emails will stop.",
+    );
+    if (!confirmed) return;
+
     try {
-      await updateStatus(quoteId, { status: statusValue });
-      toast.success(`Status updated to ${isAccept ? "Accepted" : "Rejected"}.`);
+      await updateStatus(quoteId, { status: "closed" });
+      toast.success("Booking closed. Future reminder emails are stopped.");
     } catch (err) {
-      toast.error(err?.message || "Failed to update status.");
-    } finally {
-      setPendingStatus(null);
+      toast.error(parseActionError(err, "Failed to close booking."));
     }
   };
 
@@ -931,6 +932,11 @@ function ViewBooking() {
 
   return (
     <div className="space-y-8">
+      {error && quote && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Booking Details</h1>
@@ -953,6 +959,16 @@ function ViewBooking() {
           >
             {paymentLabel}
           </span>
+          {canCloseManualBooking && (
+            <button
+              onClick={handleCloseBooking}
+              disabled={isUpdatingStatus}
+              className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Close booking and stop future reminder emails"
+            >
+              {isUpdatingStatus ? "Closing..." : "Close Booking"}
+            </button>
+          )}
         </div>
       </div>
 

@@ -63,6 +63,11 @@ export const sidebarLinks: SidebarLink[] = [
   },
   { label: "Cleaners", href: "/users", icon: "Users" },
   { label: "Pricing", href: "/pricing", icon: "BadgeDollarSign" },
+  {
+    label: "Earnings Analytics",
+    href: "/earnings-analytics",
+    icon: "BadgeDollarSign",
+  },
   { label: "Job Reports", href: "/job-reports", icon: "FileText" },
   { label: "Settings", href: "/settings", icon: "Settings" },
 ];

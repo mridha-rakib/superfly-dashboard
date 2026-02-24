@@ -7,4 +7,11 @@ export const dashboardApi = {
     const response = await httpClient.get("/dashboard/overview");
     return unwrap(response);
   },
+
+  getEarningsAnalytics: async (params = {}) => {
+    const response = await httpClient.get("/dashboard/earnings-analytics", {
+      params,
+    });
+    return unwrap(response);
+  },
 };

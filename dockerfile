@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ARG VITE_BASE_URL=http://localhost:8080/api/v1
+ARG VITE_BASE_URL=https://api.superflycleaning.com/api/v1
 ARG VITE_NODE_ENV=production
 
 ENV VITE_BASE_URL=${VITE_BASE_URL}

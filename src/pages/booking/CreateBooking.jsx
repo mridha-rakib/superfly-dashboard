@@ -2,8 +2,14 @@ import { Filter, PieChart, Users as UsersIcon, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import CleaningScheduleFields from "../../components/booking/CleaningScheduleFields";
+import {
+  SCHEDULE_ERROR_KEYS,
+  buildCleaningSchedulePayload,
+  createInitialCleaningScheduleState,
+  validateCleaningSchedule,
+} from "../../lib/cleaningSchedule";
 import { splitCleanerPrice } from "../../lib/splitCleanerPrice";
-import { formatTimeTo12Hour, parseTimeTo24Hour } from "../../lib/time-utils";
 import { useCleanerStore } from "../../state/cleanerStore";
 import { quoteApi } from "../../services/quoteApi";
 
@@ -14,7 +20,6 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#C85344] focus:ring-2 focus:ring-[#C85344]/20 transition";
 const sectionTitle = "text-xl font-semibold text-gray-900";
 const hintClass = "text-xs text-gray-500";
-const TIME_12H_PATTERN = /^\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\s*$/i;
 const commercialServiceOptions = [
   { label: "Janitorial Services", value: "janitorial_services" },
   { label: "Carpet Cleaning", value: "carpet_cleaning" },
@@ -25,15 +30,6 @@ const commercialServiceOptions = [
 const commercialServiceValues = new Set(
   commercialServiceOptions.map((opt) => opt.value)
 );
-
-const normalize12HourTime = (value) => {
-  if (!value) return "";
-  const trimmed = value.toString().trim();
-  if (!TIME_12H_PATTERN.test(trimmed)) return null;
-  const normalized24 = parseTimeTo24Hour(trimmed);
-  if (!normalized24) return null;
-  return formatTimeTo12Hour(normalized24);
-};
 
 const normalizeCleaningServices = (services) => {
   if (!services || services.length === 0) return [];
@@ -76,13 +72,12 @@ const CreateBooking = () => {
     serviceType: "",
     squareFoot: "",
     cleaningFrequency: "one-time",
+    cleaningSchedule: createInitialCleaningScheduleState(),
     cleaningServices: [],
     generalContractorName: "",
     generalContractorPhone: "",
 
     // 3. Scheduling
-    preferredDate: "",
-    preferredTime: "",
     assignedCleaner: "",
     jobNote: "",
 
@@ -155,6 +150,35 @@ const CreateBooking = () => {
     setErrors((prev) => ({ ...prev, [e.target.name]: null }));
   };
 
+  const clearErrorsByKeys = (keys) => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      keys.forEach((key) => {
+        delete next[key];
+      });
+      return next;
+    });
+  };
+
+  const handleFrequencyChange = (frequency) => {
+    setFormData((prev) => ({
+      ...prev,
+      cleaningFrequency: frequency,
+    }));
+    clearErrorsByKeys(SCHEDULE_ERROR_KEYS);
+  };
+
+  const handleScheduleChange = (updater) => {
+    setFormData((prev) => ({
+      ...prev,
+      cleaningSchedule:
+        typeof updater === "function"
+          ? updater(prev.cleaningSchedule)
+          : updater,
+    }));
+    clearErrorsByKeys(SCHEDULE_ERROR_KEYS);
+  };
+
   const toggleCleaningService = (service) => {
     setFormData((prev) => {
       const next = prev.cleaningServices.includes(service)
@@ -163,24 +187,6 @@ const CreateBooking = () => {
       return { ...prev, cleaningServices: next };
     });
     setErrors((prev) => ({ ...prev, cleaningServices: null }));
-  };
-
-  const handleTimeBlur = (field) => (e) => {
-    const value = e.target.value;
-    if (!value) {
-      setErrors((prev) => ({ ...prev, [field]: null }));
-      return;
-    }
-    const normalized = normalize12HourTime(value);
-    if (!normalized) {
-      setErrors((prev) => ({
-        ...prev,
-        [field]: "Use 12-hour format (e.g., 9:30 AM).",
-      }));
-      return;
-    }
-    setFormData((prev) => ({ ...prev, [field]: normalized }));
-    setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
   const filteredCleaners = useMemo(() => {
@@ -238,8 +244,6 @@ const CreateBooking = () => {
       if (isPostConstruction && !formData.generalContractorPhone.trim()) {
         missingFields.push("General Contractor Contact Number");
       }
-      if (!formData.preferredDate) missingFields.push("Preferred Date");
-      if (!formData.preferredTime) missingFields.push("Preferred Time");
 
       if (missingFields.length) {
         throw new Error(`Please fill: ${missingFields.join(", ")}`);
@@ -268,14 +272,23 @@ const CreateBooking = () => {
         throw new Error("Select at least one cleaning service.");
       }
 
-      const normalizedTime = normalize12HourTime(formData.preferredTime);
-
-      if (!normalizedTime) {
+      const scheduleValidation = validateCleaningSchedule(
+        formData.cleaningFrequency,
+        formData.cleaningSchedule
+      );
+      if (!scheduleValidation.isValid) {
         setErrors((prev) => ({
           ...prev,
-          preferredTime: "Use 12-hour format (e.g., 9:30 AM).",
+          ...scheduleValidation.errors,
         }));
-        throw new Error("Preferred Time must be in 12-hour format.");
+        throw new Error(scheduleValidation.firstError || "Invalid schedule.");
+      }
+      const cleaningSchedule = buildCleaningSchedulePayload(
+        formData.cleaningFrequency,
+        formData.cleaningSchedule
+      );
+      if (!cleaningSchedule) {
+        throw new Error("Invalid cleaning schedule payload.");
       }
 
       const businessAddress = isPostConstruction
@@ -289,14 +302,24 @@ const CreateBooking = () => {
         email: formData.email,
         phoneNumber: formData.phone,
         businessAddress,
-        preferredDate: formData.preferredDate,
-        preferredTime: normalizedTime,
+        preferredDate:
+          cleaningSchedule.frequency === "one_time"
+            ? cleaningSchedule.schedule.date
+            : undefined,
+        preferredTime:
+          cleaningSchedule.frequency === "one_time"
+            ? cleaningSchedule.schedule.start_time
+            : undefined,
         specialRequest: formData.jobNote?.trim() || "N/A",
         squareFoot: formData.squareFoot,
         totalPrice: Number(formData.totalPrice) || undefined,
         cleanerPrice: Number(formData.cleanerPrice) || undefined,
         assignedCleanerIds: formData.assignedCleaners,
-        cleaningFrequency: formData.cleaningFrequency,
+        cleaningFrequency:
+          cleaningSchedule.frequency === "one_time"
+            ? "one-time"
+            : cleaningSchedule.frequency,
+        cleaningSchedule,
         cleaningServices: normalizedCleaningServices.length
           ? normalizedCleaningServices
           : undefined,
@@ -306,7 +329,7 @@ const CreateBooking = () => {
 
       payload.preferredDate = payload.preferredDate
         ? new Date(payload.preferredDate).toISOString().slice(0, 10)
-        : "";
+        : undefined;
       payload.totalPrice =
         payload.totalPrice !== undefined && payload.totalPrice !== null
           ? Number(payload.totalPrice)
@@ -482,34 +505,6 @@ const CreateBooking = () => {
           </div>
         </div>
 
-        {(isCommercial || isPostConstruction) && (
-          <div className="mt-2">
-            <label className="block mb-3 font-medium text-gray-900">
-              Cleaning Frequency
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {["one-time", "weekly", "monthly"].map((freq) => (
-                <button
-                  key={freq}
-                  type="button"
-                  onClick={() =>
-                    handleChange({
-                      target: { name: "cleaningFrequency", value: freq },
-                    })
-                  }
-                  className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${
-                    formData.cleaningFrequency === freq
-                      ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  {freq.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {formData.serviceType === "commercial" && (
           <div className="mt-6">
             <label className="block mb-3 font-medium text-gray-900">
@@ -588,34 +583,36 @@ const CreateBooking = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Preferred Date</label>
-            <input
-              type="date"
-              name="preferredDate"
-              value={formData.preferredDate}
-              onChange={handleChange}
-              className={inputClass}
-            />
+        {(isCommercial || isPostConstruction) && (
+          <div className="mt-2">
+            <label className="block mb-3 font-medium text-gray-900">
+              Cleaning Frequency
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {["one-time", "weekly", "monthly"].map((freq) => (
+                <button
+                  key={freq}
+                  type="button"
+                  onClick={() => handleFrequencyChange(freq)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold border transition ${
+                    formData.cleaningFrequency === freq
+                      ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {freq.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div>
-            <label className={labelClass}>Preferred Time</label>
-            <input
-              type="text"
-              name="preferredTime"
-              value={formData.preferredTime}
-              onChange={handleChange}
-              onBlur={handleTimeBlur("preferredTime")}
-              className={inputClass}
-              placeholder="e.g., 9:30 AM"
-            />
-            {errors.preferredTime && (
-              <p className="mt-1 text-xs text-red-600">{errors.preferredTime}</p>
-            )}
-          </div>
-        </div>
+        <CleaningScheduleFields
+          frequency={formData.cleaningFrequency}
+          schedule={formData.cleaningSchedule}
+          errors={errors}
+          onScheduleChange={handleScheduleChange}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
           <div className="lg:col-span-2">

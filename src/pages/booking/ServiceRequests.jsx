@@ -1,6 +1,6 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Building2, ChevronDown } from "lucide-react";
+import { Building2, ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useQuoteStore } from "../../state/quoteStore";
 
@@ -21,27 +21,82 @@ const statusBadge = (status = "pending") => {
   return map[status] || "bg-gray-100 text-gray-700";
 };
 
+const isSameIdList = (left = [], right = []) =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+
 function ServiceRequests() {
   const navigate = useNavigate();
+  const createMenuRef = useRef(null);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
-  const { quotes, isLoading, error, fetchQuotes } = useQuoteStore();
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState([]);
+  const {
+    quotes,
+    isLoading,
+    isDeleting,
+    error,
+    fetchQuotes,
+    deleteQuote,
+    deleteQuotesBulk,
+  } = useQuoteStore();
 
   useEffect(() => {
     fetchQuotes({ limit: 100 }).catch(() => {});
   }, [fetchQuotes]);
 
-  const requests = (quotes || []).filter((q) =>
-    manualTypes.includes(q.serviceType)
+  const adminCreatedRequests = useMemo(
+    () =>
+      (quotes || []).filter(
+        (q) =>
+          manualTypes.includes(q.serviceType) &&
+          adminRoles.has((q.createdByRole || "").toLowerCase())
+      ),
+    [quotes]
   );
-  const adminCreatedRequests = requests.filter((q) =>
-    adminRoles.has((q.createdByRole || "").toLowerCase())
+  const commercialRequests = useMemo(
+    () => adminCreatedRequests.filter((q) => q.serviceType === "commercial"),
+    [adminCreatedRequests]
   );
-  const commercialRequests = adminCreatedRequests.filter(
-    (q) => q.serviceType === "commercial"
+  const postConstructionRequests = useMemo(
+    () =>
+      adminCreatedRequests.filter((q) => q.serviceType === "post_construction"),
+    [adminCreatedRequests]
   );
-  const postConstructionRequests = adminCreatedRequests.filter(
-    (q) => q.serviceType === "post_construction"
+  const allVisibleQuoteIds = useMemo(
+    () =>
+      adminCreatedRequests
+        .map((quote) => String(quote._id || quote.id || ""))
+        .filter(Boolean),
+    [adminCreatedRequests]
   );
+
+  useEffect(() => {
+    const visibleSet = new Set(allVisibleQuoteIds);
+    setSelectedQuoteIds((prev) => {
+      const next = prev.filter((id) => visibleSet.has(id));
+      return isSameIdList(prev, next) ? prev : next;
+    });
+  }, [allVisibleQuoteIds]);
+
+  useEffect(() => {
+    if (!showCreateMenu) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (
+        createMenuRef.current &&
+        !createMenuRef.current.contains(event.target)
+      ) {
+        setShowCreateMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showCreateMenu]);
 
   const handleCreate = (type) => {
     setShowCreateMenu(false);
@@ -57,10 +112,62 @@ function ServiceRequests() {
     { label: "Post-Construction Cleaning", value: "Post-Construction Cleaning" },
     { label: "Residential Cleaning (disabled)", value: "Residential Cleaning", disabled: true },
   ];
+  const allSelected =
+    allVisibleQuoteIds.length > 0 &&
+    selectedQuoteIds.length === allVisibleQuoteIds.length;
+
+  const toggleQuoteSelection = (quoteId) => {
+    setSelectedQuoteIds((prev) =>
+      prev.includes(quoteId)
+        ? prev.filter((id) => id !== quoteId)
+        : [...prev, quoteId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedQuoteIds(allSelected ? [] : allVisibleQuoteIds);
+  };
+
+  const handleDeleteSingle = async (quoteId) => {
+    const confirmed = window.confirm(
+      "Delete this booking? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteQuote(quoteId);
+      setSelectedQuoteIds((prev) => prev.filter((id) => id !== quoteId));
+      toast.success("Booking deleted.");
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete booking.");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedQuoteIds.length) {
+      toast.info("Select at least one booking to delete.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedQuoteIds.length} selected booking(s)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await deleteQuotesBulk(selectedQuoteIds);
+      const deletedCount =
+        Number(result?.deletedCount) || selectedQuoteIds.length;
+      setSelectedQuoteIds([]);
+      toast.success(`${deletedCount} booking(s) deleted.`);
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete selected bookings.");
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <header className="relative z-20 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-[#C85344] uppercase tracking-wide">
             Bookings
@@ -70,8 +177,10 @@ function ServiceRequests() {
             Admin-created Commercial & Post-Construction bookings.
           </p>
         </div>
-        <div className="relative">
+        <div ref={createMenuRef} className="relative z-30">
           <button
+            type="button"
+            aria-expanded={showCreateMenu}
             onClick={() => setShowCreateMenu((v) => !v)}
             className="inline-flex items-center gap-2 rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
           >
@@ -80,13 +189,17 @@ function ServiceRequests() {
             <ChevronDown className="h-4 w-4" />
           </button>
           {showCreateMenu && (
-            <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg">
+            <div
+              className="absolute right-0 top-full z-[70] mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5"
+              onClick={(e) => e.stopPropagation()}
+            >
               {createOptions.map((opt) => (
                 <button
+                  type="button"
                   key={opt.value}
                   disabled={opt.disabled}
                   onClick={() => handleCreate(opt.value)}
-                  className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm ${
+                  className={`flex w-full items-center justify-between border-b border-gray-100 px-4 py-3 text-left text-sm last:border-b-0 ${
                     opt.disabled
                       ? "cursor-not-allowed text-gray-400"
                       : "hover:bg-gray-50 text-gray-800"
@@ -104,6 +217,33 @@ function ServiceRequests() {
           )}
         </div>
       </header>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-gray-700">
+            {selectedQuoteIds.length} booking(s) selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              disabled={!allVisibleQuoteIds.length || isDeleting}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {allSelected ? "Clear Selection" : "Select All"}
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={!selectedQuoteIds.length || isDeleting}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? "Deleting..." : "Delete Selected"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -127,21 +267,29 @@ function ServiceRequests() {
               return (
                 <div
                   key={quoteId}
-                  className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                  className="px-6 py-4 flex flex-col md:flex-row md:items-start md:justify-between gap-3"
                 >
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedQuoteIds.includes(String(quoteId))}
+                      onChange={() => toggleQuoteSelection(String(quoteId))}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#C85344] focus:ring-[#C85344]"
+                    />
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500">
                       Booking ID:{" "}
                       <span className="font-semibold text-gray-800">
                         {quoteId}
                       </span>
-                    </p>
-                    <p className="text-base font-semibold text-gray-900">
-                      {quote.companyName || quote.contactName || "Client"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Commercial - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
-                    </p>
+                      </p>
+                      <p className="text-base font-semibold text-gray-900">
+                        {quote.companyName || quote.contactName || "Client"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Commercial - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span
@@ -157,6 +305,14 @@ function ServiceRequests() {
                     >
                       View
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSingle(String(quoteId))}
+                      disabled={isDeleting}
+                      className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               );
@@ -187,21 +343,29 @@ function ServiceRequests() {
               return (
                 <div
                   key={quoteId}
-                  className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                  className="px-6 py-4 flex flex-col md:flex-row md:items-start md:justify-between gap-3"
                 >
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedQuoteIds.includes(String(quoteId))}
+                      onChange={() => toggleQuoteSelection(String(quoteId))}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#C85344] focus:ring-[#C85344]"
+                    />
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500">
                       Booking ID:{" "}
                       <span className="font-semibold text-gray-800">
                         {quoteId}
                       </span>
-                    </p>
-                    <p className="text-base font-semibold text-gray-900">
-                      {quote.companyName || quote.contactName || "Client"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Post-Construction - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
-                    </p>
+                      </p>
+                      <p className="text-base font-semibold text-gray-900">
+                        {quote.companyName || quote.contactName || "Client"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Post-Construction - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span
@@ -217,6 +381,14 @@ function ServiceRequests() {
                     >
                       View
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSingle(String(quoteId))}
+                      disabled={isDeleting}
+                      className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               );

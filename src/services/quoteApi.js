@@ -35,6 +35,32 @@ export const quoteApi = {
     return unwrap(response);
   },
 
+  bulkDeleteQuotes: async (quoteIds) => {
+    const response = await httpClient.delete("/quotes/bulk", {
+      data: { quoteIds },
+    });
+    return unwrap(response);
+  },
+
+  listAdminNotifications: async (params = {}) => {
+    const response = await httpClient.get("/quotes/admin/notifications", {
+      params,
+    });
+    return unwrap(response);
+  },
+
+  markAdminNotificationAsRead: async (notificationId) => {
+    const response = await httpClient.patch(
+      `/quotes/admin/notifications/${notificationId}/read`
+    );
+    return unwrap(response);
+  },
+
+  markAllAdminNotificationsAsRead: async () => {
+    const response = await httpClient.patch("/quotes/admin/notifications/read-all");
+    return unwrap(response);
+  },
+
   createAdminServiceRequest: async (payload) => {
     const response = await httpClient.post("/quotes/admin/service-request", payload);
     return unwrap(response);

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { Loader2, Search, Sparkles, Users } from "lucide-react";
+import { Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { Pagination } from "../../components/ui/Pagination";
+import { clientApi } from "../../services/clientApi";
 import { quoteApi } from "../../services/quoteApi";
 
 const PER_PAGE = 8;
@@ -41,6 +42,8 @@ const aggregateClients = (quotes) => {
     const isAuthorized = role === "client" || Boolean(quote?.userId);
     const targetMap = isAuthorized ? authorized : guest;
     const key = getClientKey(quote);
+    const quoteId = quote?._id || quote?.id ? String(quote._id || quote.id) : "";
+    const userId = quote?.userId ? String(quote.userId) : "";
 
     const next = targetMap.get(key) || {
       id: key,
@@ -50,6 +53,9 @@ const aggregateClients = (quotes) => {
       totalRequests: 0,
       lastRequestAt: quote?.createdAt || null,
       createdByRole: role || (isAuthorized ? "client" : "guest"),
+      isAuthorized,
+      userId,
+      quoteIds: [],
     };
 
     const quoteCreatedAt = quote?.createdAt || null;
@@ -64,6 +70,13 @@ const aggregateClients = (quotes) => {
     }
 
     next.totalRequests += 1;
+    if (quoteId && !next.quoteIds.includes(quoteId)) {
+      next.quoteIds.push(quoteId);
+    }
+    if (!next.userId && userId) {
+      next.userId = userId;
+    }
+    next.isAuthorized = next.isAuthorized || isAuthorized;
     targetMap.set(key, next);
   });
 
@@ -91,6 +104,7 @@ function Clients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState("");
   const [error, setError] = useState("");
   const [authorizedClients, setAuthorizedClients] = useState([]);
   const [guestClients, setGuestClients] = useState([]);
@@ -166,6 +180,42 @@ function Clients() {
     (effectivePage - 1) * PER_PAGE,
     effectivePage * PER_PAGE
   );
+
+  const handleDeleteClient = async (client) => {
+    if (!client) return;
+
+    const confirmed = window.confirm(
+      `Delete this ${client.isAuthorized ? "authorized" : "guest"} client? This will remove their related requests from the directory.`
+    );
+    if (!confirmed) return;
+
+    setDeletingClientId(client.id);
+    try {
+      if (client.userId) {
+        await clientApi.deleteClient(client.userId);
+      } else {
+        const quoteIds = Array.isArray(client.quoteIds)
+          ? client.quoteIds.filter(Boolean)
+          : [];
+        if (!quoteIds.length) {
+          throw new Error("No related requests found for this client.");
+        }
+        await quoteApi.bulkDeleteQuotes(quoteIds);
+      }
+
+      setAuthorizedClients((prev) => prev.filter((item) => item.id !== client.id));
+      setGuestClients((prev) => prev.filter((item) => item.id !== client.id));
+      toast.success("Client deleted successfully.");
+    } catch (deleteError) {
+      const message =
+        deleteError?.response?.data?.message ||
+        deleteError?.message ||
+        "Failed to delete client.";
+      toast.error(message);
+    } finally {
+      setDeletingClientId("");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -248,19 +298,20 @@ function Clients() {
           </div>
         ) : (
           <>
-            <div className="hidden md:grid grid-cols-6 gap-4 border-b border-gray-200 bg-[#FFF6F3] px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+            <div className="hidden md:grid grid-cols-7 gap-4 border-b border-gray-200 bg-[#FFF6F3] px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
               <p>No</p>
               <p>Name</p>
               <p>Email</p>
               <p>Contact</p>
               <p>Requests</p>
               <p>Last Request</p>
+              <p className="text-right">Actions</p>
             </div>
             <div className="divide-y divide-gray-100">
               {paginatedClients.map((client, index) => (
                 <div
                   key={client.id}
-                  className="grid grid-cols-1 gap-2 px-5 py-4 text-sm text-gray-700 md:grid-cols-6 md:gap-4"
+                  className="grid grid-cols-1 gap-2 px-5 py-4 text-sm text-gray-700 md:grid-cols-7 md:gap-4"
                 >
                   <p className="font-medium text-gray-900">
                     {String((effectivePage - 1) * PER_PAGE + index + 1).padStart(2, "0")}
@@ -270,6 +321,21 @@ function Clients() {
                   <p>{client.phone || "-"}</p>
                   <p>{client.totalRequests}</p>
                   <p>{formatDate(client.lastRequestAt)}</p>
+                  <div className="md:text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteClient(client)}
+                      disabled={Boolean(deletingClientId)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingClientId === client.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

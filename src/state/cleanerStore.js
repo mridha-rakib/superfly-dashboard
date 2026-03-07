@@ -29,7 +29,62 @@ const initialState = {
   error: null,
 };
 
-export const useCleanerStore = create((set, get) => ({
+const normalizeCleanerListResponse = (response, fallbackLimit = 8) => {
+  const root = response?.data ?? response ?? {};
+  const nestedData = root?.data;
+
+  const items =
+    (Array.isArray(root) && root) ||
+    (Array.isArray(root?.items) && root.items) ||
+    (Array.isArray(root?.data) && root.data) ||
+    (Array.isArray(nestedData?.items) && nestedData.items) ||
+    (Array.isArray(nestedData?.data) && nestedData.data) ||
+    [];
+
+  const paginationCandidate =
+    root?.pagination ||
+    nestedData?.pagination ||
+    {};
+
+  const totalItems =
+    Number(paginationCandidate?.totalItems) ||
+    Number(root?.totalItems) ||
+    Number(nestedData?.totalItems) ||
+    items.length;
+
+  const itemsPerPage =
+    Number(paginationCandidate?.itemsPerPage) ||
+    Number(root?.itemsPerPage) ||
+    Number(nestedData?.itemsPerPage) ||
+    fallbackLimit;
+
+  return {
+    items,
+    pagination: {
+      currentPage:
+        Number(paginationCandidate?.currentPage) ||
+        Number(root?.currentPage) ||
+        Number(nestedData?.currentPage) ||
+        1,
+      totalPages:
+        Number(paginationCandidate?.totalPages) ||
+        Number(root?.totalPages) ||
+        Number(root?.pageCount) ||
+        Number(nestedData?.totalPages) ||
+        Number(nestedData?.pageCount) ||
+        Math.max(1, Math.ceil((totalItems || 0) / (itemsPerPage || fallbackLimit))),
+      totalItems,
+      itemsPerPage,
+      hasNext: Boolean(paginationCandidate?.hasNext),
+      hasPrev: Boolean(paginationCandidate?.hasPrev),
+      nextPage: paginationCandidate?.nextPage ?? null,
+      prevPage: paginationCandidate?.prevPage ?? null,
+      slNo: Number(paginationCandidate?.slNo) || 0,
+    },
+  };
+};
+
+export const useCleanerStore = create((set) => ({
   ...initialState,
 
   clearError: () => set({ error: null }),
@@ -38,27 +93,17 @@ export const useCleanerStore = create((set, get) => ({
     set({ isLoadingList: true, error: null });
     try {
       const response = await cleanerApi.list(params);
-      const items = response?.data || response?.items || [];
-      const pagination =
-        response?.pagination || {
-          currentPage: response?.currentPage || params?.page || 1,
-          totalPages:
-            response?.totalPages ||
-            response?.pageCount ||
-            Math.max(
-              1,
-              Math.ceil((response?.totalItems ?? items.length) / (params?.limit || 8))
-            ),
-          totalItems: response?.totalItems ?? items.length,
-          itemsPerPage: response?.itemsPerPage || params?.limit || 8,
-        };
+      const normalized = normalizeCleanerListResponse(
+        response,
+        params?.limit || 8
+      );
 
       set({
-        cleaners: items,
-        pagination,
+        cleaners: normalized.items,
+        pagination: normalized.pagination,
         isLoadingList: false,
       });
-      return items;
+      return normalized.items;
     } catch (error) {
       set({ isLoadingList: false, error: parseError(error) });
       throw error;

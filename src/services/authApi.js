@@ -27,8 +27,12 @@ export const authApi = {
   },
 
   fetchProfile: async () => {
-    const response = await httpClient.get("/users/profile");
+    const response = await httpClient.get("/user/profile");
+    return unwrap(response);
+  },
+
+  changePassword: async (payload) => {
+    const response = await httpClient.put("/auth/change-password", payload);
     return unwrap(response);
   },
 };
-

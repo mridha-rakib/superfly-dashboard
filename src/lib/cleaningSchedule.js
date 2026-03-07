@@ -37,29 +37,17 @@ export const MONTH_OPTIONS = [
 ];
 
 const ALL_MONTH_VALUES = MONTH_OPTIONS.map((month) => month.value);
-const MONTH_DAY_LIMITS = {
-  1: 31,
-  2: 28,
-  3: 31,
-  4: 30,
-  5: 31,
-  6: 30,
-  7: 31,
-  8: 31,
-  9: 30,
-  10: 31,
-  11: 30,
-  12: 31,
-};
 
 export const SCHEDULE_ERROR_KEYS = [
   "scheduleDate",
   "scheduleStartTime",
   "scheduleEndTime",
   "scheduleDays",
+  "scheduleMonthlyYear",
   "scheduleMonthlyMonths",
   "scheduleMonthlyDates",
   "scheduleMonthlyPattern",
+  "scheduleMonthlyTimes",
 ];
 
 const toMinutes = (value) => {
@@ -71,6 +59,184 @@ const toMinutes = (value) => {
 
 const isDateLike = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || "");
 const isTimeLike = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
+
+const toDateOnly = (value) =>
+  new Date(value.getFullYear(), value.getMonth(), value.getDate());
+
+const addDays = (value, days) => {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return toDateOnly(next);
+};
+
+const toDateString = (value) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateString = (value) => {
+  if (!isDateLike(value)) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return toDateOnly(parsed);
+};
+
+export const getScheduleMinDate = () => {
+  const tomorrow = addDays(toDateOnly(new Date()), 1);
+  return toDateString(tomorrow);
+};
+
+export const getMonthlyYearOptions = (yearsAhead = 5) => {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: Math.max(1, Number(yearsAhead) + 1) }, (_, index) =>
+    currentYear + index
+  );
+};
+
+export const getMonthScopeKey = (year, monthValue) =>
+  `${Number(year)}-${String(Number(monthValue)).padStart(2, "0")}`;
+
+const normalizeMonthList = (months) =>
+  Array.from(
+    new Set(
+      (Array.isArray(months) ? months : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
+    )
+  ).sort((a, b) => a - b);
+
+const normalizeMonths = (months) => {
+  const normalized = normalizeMonthList(months);
+  return normalized.length ? normalized : [...ALL_MONTH_VALUES];
+};
+
+export const getDaysInMonth = (monthValue, year = new Date().getFullYear()) => {
+  const month = Number(monthValue);
+  const resolvedYear = Number(year);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return 31;
+  }
+  const parsed = new Date(resolvedYear, month, 0).getDate();
+  return Number.isFinite(parsed) ? parsed : 31;
+};
+
+export const isMonthSelectableForYear = (
+  year,
+  monthValue,
+  minDate = getScheduleMinDate()
+) => {
+  const month = Number(monthValue);
+  const selectedYear = Number(year);
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (!Number.isInteger(selectedYear)) return false;
+
+  const min = parseDateString(minDate);
+  if (!min) return true;
+  const lastDay = new Date(selectedYear, month, 0);
+  return toDateOnly(lastDay) >= min;
+};
+
+export const isMonthDateSelectable = (
+  year,
+  monthValue,
+  dayValue,
+  minDate = getScheduleMinDate()
+) => {
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  const selectedYear = Number(year);
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (!Number.isInteger(day) || day < 1) return false;
+  if (!Number.isInteger(selectedYear)) return false;
+
+  const maxDay = getDaysInMonth(month, selectedYear);
+  if (day > maxDay) return false;
+
+  const min = parseDateString(minDate);
+  if (!min) return true;
+
+  const candidate = toDateOnly(new Date(selectedYear, month - 1, day));
+  return candidate >= min;
+};
+
+const readMonthScopedArray = (collection, year, monthValue) => {
+  if (!collection || typeof collection !== "object") return [];
+  const scopeKey = getMonthScopeKey(year, monthValue);
+  const month = Number(monthValue);
+  const values = Array.isArray(collection?.[scopeKey])
+    ? collection[scopeKey]
+    : Array.isArray(collection?.[month])
+    ? collection[month]
+    : Array.isArray(collection?.[String(month)])
+    ? collection[String(month)]
+    : [];
+  return Array.isArray(values) ? values : [];
+};
+
+const readMonthScopedObject = (collection, year, monthValue) => {
+  if (!collection || typeof collection !== "object") return {};
+  const scopeKey = getMonthScopeKey(year, monthValue);
+  const month = Number(monthValue);
+  const value =
+    collection?.[scopeKey] ??
+    collection?.[month] ??
+    collection?.[String(month)] ??
+    {};
+  return value && typeof value === "object" ? value : {};
+};
+
+const normalizeDatesForMonth = (dates, monthValue, year) => {
+  const maxDay = getDaysInMonth(monthValue, year);
+  return Array.from(
+    new Set(
+      (Array.isArray(dates) ? dates : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1 && value <= maxDay)
+    )
+  ).sort((a, b) => a - b);
+};
+
+const normalizeMonthDates = (
+  monthDates,
+  selectedMonths,
+  fallbackDates = [],
+  selectedYear = new Date().getFullYear()
+) => {
+  const hasExplicitMonthDates =
+    monthDates &&
+    typeof monthDates === "object" &&
+    Object.keys(monthDates).length > 0;
+
+  const result = {};
+  selectedMonths.forEach((month) => {
+    const sourceDates = hasExplicitMonthDates
+      ? readMonthScopedArray(monthDates, selectedYear, month)
+      : fallbackDates;
+    result[month] = normalizeDatesForMonth(sourceDates, month, selectedYear);
+  });
+
+  return result;
+};
+
+const resolveSelectedMonths = (months) => normalizeMonthList(months);
+
+const resolveMonthlyTimeForMonth = (monthly = {}, month, selectedYear) => {
+  const scopedTime = readMonthScopedObject(monthly.monthTimes, selectedYear, month);
+  return {
+    startTime: scopedTime.startTime || monthly.startTime || "",
+    endTime: scopedTime.endTime || monthly.endTime || "",
+  };
+};
 
 export const createInitialCleaningScheduleState = () => ({
   oneTime: {
@@ -85,8 +251,12 @@ export const createInitialCleaningScheduleState = () => ({
     repeatUntil: "",
   },
   monthly: {
+    year: new Date().getFullYear(),
     patternType: "specific_dates",
-    months: [...ALL_MONTH_VALUES],
+    months: [],
+    activeMonth: null,
+    monthDates: {},
+    monthTimes: {},
     dates: [],
     week: "first",
     day: "monday",
@@ -95,30 +265,22 @@ export const createInitialCleaningScheduleState = () => ({
   },
 });
 
-const normalizeMonths = (months) => {
-  const normalized = Array.from(
-    new Set(
-      (Array.isArray(months) ? months : [])
-        .map((value) => Number(value))
-        .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
-    )
-  ).sort((a, b) => a - b);
-  return normalized.length ? normalized : [...ALL_MONTH_VALUES];
-};
-
-export const getMaxDayForMonths = (months) => {
+export const getMaxDayForMonths = (months, year = new Date().getFullYear()) => {
   const normalizedMonths = normalizeMonths(months);
-  const limits = normalizedMonths.map((month) => MONTH_DAY_LIMITS[month] || 31);
+  const limits = normalizedMonths.map((month) => getDaysInMonth(month, year));
   return limits.length ? Math.max(...limits) : 31;
 };
 
 export const validateCleaningSchedule = (frequency, scheduleState) => {
   const errors = {};
+  const minScheduleDate = getScheduleMinDate();
 
   if (frequency === "one-time") {
     const oneTime = scheduleState.oneTime || {};
     if (!oneTime.date || !isDateLike(oneTime.date)) {
       errors.scheduleDate = "Date is required.";
+    } else if (oneTime.date < minScheduleDate) {
+      errors.scheduleDate = "Past dates are not allowed.";
     }
     if (!oneTime.startTime || !isTimeLike(oneTime.startTime)) {
       errors.scheduleStartTime = "Start time is required.";
@@ -155,46 +317,59 @@ export const validateCleaningSchedule = (frequency, scheduleState) => {
     }
     if (weekly.repeatUntil && !isDateLike(weekly.repeatUntil)) {
       errors.scheduleDate = "Repeat Until must be a valid date.";
+    } else if (weekly.repeatUntil && weekly.repeatUntil < minScheduleDate) {
+      errors.scheduleDate = "Repeat Until cannot be in the past.";
     }
   }
 
   if (frequency === "monthly") {
     const monthly = scheduleState.monthly || {};
-    const selectedMonths = Array.from(
-      new Set(
-        (Array.isArray(monthly.months) ? monthly.months : [])
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
-      )
-    );
+    const currentYear = new Date().getFullYear();
+    const selectedYearRaw = Number(monthly.year);
+    const selectedYear =
+      Number.isInteger(selectedYearRaw) && selectedYearRaw >= currentYear
+        ? selectedYearRaw
+        : currentYear;
+    const selectedMonths = resolveSelectedMonths(monthly.months);
+
     if (!selectedMonths.length) {
       errors.scheduleMonthlyMonths = "Select at least one month.";
     }
-    if (!monthly.startTime || !isTimeLike(monthly.startTime)) {
-      errors.scheduleStartTime = "Start time is required.";
-    }
-    if (!monthly.endTime || !isTimeLike(monthly.endTime)) {
-      errors.scheduleEndTime = "End time is required.";
-    }
-    if (
-      isTimeLike(monthly.startTime) &&
-      isTimeLike(monthly.endTime) &&
-      toMinutes(monthly.endTime) <= toMinutes(monthly.startTime)
-    ) {
-      errors.scheduleEndTime = "End time must be after start time.";
+
+    const hasPastMonth = selectedMonths.some(
+      (month) => !isMonthSelectableForYear(selectedYear, month, minScheduleDate)
+    );
+    if (hasPastMonth) {
+      errors.scheduleMonthlyMonths = "Past months are not allowed for the selected year.";
     }
 
     if (monthly.patternType === "specific_dates") {
-      if (!Array.isArray(monthly.dates) || monthly.dates.length === 0) {
-        errors.scheduleMonthlyDates = "Select at least one date of month.";
+      const monthDates = normalizeMonthDates(
+        monthly.monthDates,
+        selectedMonths,
+        monthly.dates,
+        selectedYear
+      );
+      const missingMonths = selectedMonths.filter(
+        (month) => !monthDates[month] || monthDates[month].length === 0
+      );
+      if (missingMonths.length) {
+        errors.scheduleMonthlyDates =
+          "Select at least one date for each selected month.";
       } else {
-        const maxDayForMonths = getMaxDayForMonths(monthly.months);
-        const hasInvalidDate = monthly.dates.some(
-          (value) => Number(value) > maxDayForMonths
+        const hasPastDate = selectedMonths.some((month) =>
+          (monthDates[month] || []).some(
+            (dateValue) =>
+              !isMonthDateSelectable(
+                selectedYear,
+                month,
+                dateValue,
+                minScheduleDate
+              )
+          )
         );
-        if (hasInvalidDate) {
-          errors.scheduleMonthlyDates =
-            "Selected date(s) are not valid for the chosen month(s).";
+        if (hasPastDate) {
+          errors.scheduleMonthlyDates = "Past dates are not allowed.";
         }
       }
     } else if (monthly.patternType === "weekday_pattern") {
@@ -203,6 +378,31 @@ export const validateCleaningSchedule = (frequency, scheduleState) => {
       }
     } else {
       errors.scheduleMonthlyPattern = "Select a valid monthly pattern.";
+    }
+
+    const missingMonthTimes = [];
+    const invalidMonthTimes = [];
+    selectedMonths.forEach((month) => {
+      const { startTime, endTime } = resolveMonthlyTimeForMonth(
+        monthly,
+        month,
+        selectedYear
+      );
+      if (!isTimeLike(startTime) || !isTimeLike(endTime)) {
+        missingMonthTimes.push(month);
+        return;
+      }
+      if (toMinutes(endTime) <= toMinutes(startTime)) {
+        invalidMonthTimes.push(month);
+      }
+    });
+
+    if (missingMonthTimes.length) {
+      errors.scheduleMonthlyTimes =
+        "Set start and end time for each selected month.";
+    } else if (invalidMonthTimes.length) {
+      errors.scheduleMonthlyTimes =
+        "End time must be after start time for each selected month.";
     }
   }
 
@@ -240,30 +440,79 @@ export const buildCleaningSchedulePayload = (frequency, scheduleState) => {
 
   if (frequency === "monthly") {
     const monthly = scheduleState.monthly;
-    const months = normalizeMonths(monthly.months);
+    const months = resolveSelectedMonths(monthly.months);
+    const selectedYearRaw = Number(monthly.year);
+    const selectedYear = Number.isInteger(selectedYearRaw)
+      ? selectedYearRaw
+      : new Date().getFullYear();
+
+    const monthTimes = months.map((month) => {
+      const monthTime = resolveMonthlyTimeForMonth(monthly, month, selectedYear);
+      return {
+        month,
+        start_time: monthTime.startTime,
+        end_time: monthTime.endTime,
+      };
+    });
+
+    const primaryMonthTime = monthTimes[0] || {};
+    const defaultStartTime = primaryMonthTime.start_time || monthly.startTime || "";
+    const defaultEndTime = primaryMonthTime.end_time || monthly.endTime || "";
+
     if (monthly.patternType === "specific_dates") {
-      const maxDayForMonths = getMaxDayForMonths(months);
+      const monthDates = normalizeMonthDates(
+        monthly.monthDates,
+        months,
+        monthly.dates,
+        selectedYear
+      );
+      const monthDateEntries = months
+        .map((month) => {
+          const monthTime =
+            monthTimes.find((entry) => entry.month === month) || primaryMonthTime;
+          const dates = (monthDates[month] || []).filter((dateValue) =>
+            isMonthDateSelectable(
+              selectedYear,
+              month,
+              dateValue,
+              getScheduleMinDate()
+            )
+          );
+          return {
+            month,
+            dates,
+            start_time: monthTime.start_time || defaultStartTime,
+            end_time: monthTime.end_time || defaultEndTime,
+          };
+        })
+        .filter((entry) => entry.dates.length > 0);
+
       return {
         frequency: "monthly",
         pattern_type: "specific_dates",
+        year: selectedYear,
         months,
-        dates: [...new Set(monthly.dates)]
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value >= 1 && value <= maxDayForMonths)
-          .sort((a, b) => a - b),
-        start_time: monthly.startTime,
-        end_time: monthly.endTime,
+        month_dates: monthDateEntries,
+        month_times: monthTimes,
+        // Keep legacy `dates` for backward compatibility while API is transitioning.
+        dates: Array.from(
+          new Set(monthDateEntries.flatMap((entry) => entry.dates))
+        ).sort((a, b) => a - b),
+        start_time: defaultStartTime,
+        end_time: defaultEndTime,
       };
     }
 
     return {
       frequency: "monthly",
       pattern_type: "weekday_pattern",
+      year: selectedYear,
       months,
       week: monthly.week,
       day: monthly.day,
-      start_time: monthly.startTime,
-      end_time: monthly.endTime,
+      month_times: monthTimes,
+      start_time: defaultStartTime,
+      end_time: defaultEndTime,
     };
   }
 

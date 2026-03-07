@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { useAuthStore } from "../state/authStore";
 
 const ADMIN_ROLES = new Set(["admin", "super_admin"]);
+const NOTIFICATION_REFRESH_EVENT = "admin-notifications:refresh";
 
 const resolveSocketBaseUrl = () => {
   const configured = (import.meta.env.VITE_BASE_URL || "").trim();
@@ -23,6 +24,12 @@ const resolveSocketBaseUrl = () => {
       return window.location.origin;
     }
     return "http://localhost:3000";
+  }
+};
+
+const emitRefreshEvent = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(NOTIFICATION_REFRESH_EVENT));
   }
 };
 
@@ -53,12 +60,45 @@ const AdminQuoteCreatedNotifications = () => {
           payload.createdAt || Date.now(),
         ].join(":"),
       });
+      emitRefreshEvent();
+    };
+
+    const onAdminReportSubmitted = (payload = {}) => {
+      const service = payload.serviceType || "Booking";
+      const message = `Job report submitted for ${service} (#${payload.quoteId || "N/A"})`;
+
+      toast.info(message, {
+        toastId: [
+          "admin-report-submitted",
+          payload.reportId || "unknown",
+          payload.submittedAt || Date.now(),
+        ].join(":"),
+      });
+      emitRefreshEvent();
+    };
+
+    const onAdminBookingCompleted = (payload = {}) => {
+      const service = payload.serviceType || "Booking";
+      const message = `${service} booking completed (#${payload.quoteId || "N/A"})`;
+
+      toast.success(message, {
+        toastId: [
+          "admin-booking-completed",
+          payload.quoteId || "unknown",
+          payload.completedAt || Date.now(),
+        ].join(":"),
+      });
+      emitRefreshEvent();
     };
 
     socket.on("admin:quote-created", onAdminQuoteCreated);
+    socket.on("admin:report-submitted", onAdminReportSubmitted);
+    socket.on("admin:booking-completed", onAdminBookingCompleted);
 
     return () => {
       socket.off("admin:quote-created", onAdminQuoteCreated);
+      socket.off("admin:report-submitted", onAdminReportSubmitted);
+      socket.off("admin:booking-completed", onAdminBookingCompleted);
       socket.disconnect();
     };
   }, [accessToken, isAuthenticated, role]);

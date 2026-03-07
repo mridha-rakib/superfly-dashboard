@@ -26,8 +26,7 @@ const Sidebar = () => {
     return true;
   });
 
-  const handleMenuClick = (path) => {
-    navigate(path);
+  const handleMenuClick = () => {
     if (window.innerWidth < 768) setIsOpen(false); // auto-close on mobile
   };
 
@@ -96,7 +95,7 @@ const Sidebar = () => {
                 item={item}
                 isActive={isActive}
                 exact={item.exact}
-                onClick={() => handleMenuClick(item.path)}
+                onClick={handleMenuClick}
               />
             );
           })}

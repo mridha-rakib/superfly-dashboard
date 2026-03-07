@@ -29,7 +29,7 @@ const initialState = {
   error: null,
 };
 
-export const useQuoteStore = create((set, get) => ({
+export const useQuoteStore = create((set) => ({
   ...initialState,
 
   clearError: () => set({ error: null }),
@@ -143,6 +143,56 @@ export const useQuoteStore = create((set, get) => ({
         };
       });
       return true;
+    } catch (error) {
+      set({ isDeleting: false, error: parseError(error) });
+      throw error;
+    }
+  },
+
+  deleteQuotesBulk: async (ids = []) => {
+    set({ isDeleting: true, error: null });
+    try {
+      const normalizedIds = Array.from(
+        new Set(
+          (Array.isArray(ids) ? ids : [])
+            .map((id) => String(id || "").trim())
+            .filter(Boolean)
+        )
+      );
+
+      if (!normalizedIds.length) {
+        set({ isDeleting: false });
+        return { deletedCount: 0, skippedIds: [] };
+      }
+
+      const response = await quoteApi.bulkDeleteQuotes(normalizedIds);
+      const data = response?.data || response || {};
+      const deletedCount = Number(data.deletedCount) || normalizedIds.length;
+      const idSet = new Set(normalizedIds);
+
+      set((state) => {
+        const remaining = (state.quotes || []).filter(
+          (q) => !idSet.has(String(q._id || q.id))
+        );
+        const selectedId = String(
+          state.selectedQuote?._id || state.selectedQuote?.id || ""
+        );
+
+        return {
+          quotes: remaining,
+          pagination: {
+            ...state.pagination,
+            totalItems: Math.max(
+              0,
+              Number(state.pagination?.totalItems || 0) - deletedCount
+            ),
+          },
+          selectedQuote: idSet.has(selectedId) ? null : state.selectedQuote,
+          isDeleting: false,
+        };
+      });
+
+      return data;
     } catch (error) {
       set({ isDeleting: false, error: parseError(error) });
       throw error;

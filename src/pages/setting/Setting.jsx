@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import avatar1 from "../../assets/images/avatar1.jpg";
+import { authApi } from "../../services/authApi";
 import { userApi } from "../../services/userApi";
 import { useAuthStore } from "../../state/authStore";
 
@@ -24,6 +25,14 @@ function Setting() {
   const [avatarPreview, setAvatarPreview] = useState(user.avatar);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -155,6 +164,58 @@ function Setting() {
     setIsEditing(false);
   };
 
+  const handlePasswordFieldChange = (field, value) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordError("");
+    setPasswordSuccess("");
+  };
+
+  const handleChangePassword = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("All password fields are required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirm password do not match.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError("New password must be different from current password.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+    try {
+      const res = await authApi.changePassword({ currentPassword, newPassword });
+      const message =
+        res?.message ||
+        "Password changed successfully. Please login again with your new password.";
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordSuccess(message);
+      toast.success("Password changed successfully.");
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to change password.";
+      setPasswordError(message);
+      toast.error(message);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-gray-100 bg-gradient-to-r from-[#fff5f3] via-white to-[#fff7f5] p-6 shadow-sm">
@@ -167,8 +228,14 @@ function Setting() {
             />
             {isEditing && (
               <label className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#C85344] text-white shadow-md transition hover:brightness-95">
-                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-                ✎
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                {isUploading ? "..." : "✎"}
               </label>
             )}
           </div>
@@ -271,6 +338,73 @@ function Setting() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-6 py-4">
+          <p className="text-xs uppercase tracking-wide text-[#C85344]">Security</p>
+          <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
+        </div>
+
+        <div className="grid gap-4 p-6 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <label className="text-sm font-semibold text-gray-700">Current Password</label>
+            <input
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(e) => handlePasswordFieldChange("currentPassword", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20"
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">New Password</label>
+            <input
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(e) => handlePasswordFieldChange("newPassword", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">Confirm New Password</label>
+            <input
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(e) => handlePasswordFieldChange("confirmPassword", e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20"
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+
+        {(passwordError || passwordSuccess) && (
+          <div className="px-6 pb-4">
+            <p
+              className={`rounded-lg px-3 py-2 text-sm ${
+                passwordError
+                  ? "border border-red-200 bg-red-50 text-red-700"
+                  : "border border-green-200 bg-green-50 text-green-700"
+              }`}
+            >
+              {passwordError || passwordSuccess}
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end border-t border-gray-100 px-6 py-4">
+          <button
+            type="button"
+            onClick={handleChangePassword}
+            disabled={isChangingPassword}
+            className="rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-60"
+          >
+            {isChangingPassword ? "Updating..." : "Update Password"}
+          </button>
+        </div>
       </div>
     </div>
   );

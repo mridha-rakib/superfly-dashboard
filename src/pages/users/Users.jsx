@@ -28,6 +28,8 @@ function Users() {
     clearError,
   } = useCleanerStore();
 
+  const cleanerList = Array.isArray(cleaners) ? cleaners : [];
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (page > 1) params.set("page", page.toString());
@@ -57,7 +59,7 @@ function Users() {
     pagination?.totalItems ??
     pagination?.total ??
     pagination?.items?.length ??
-    cleaners.length;
+    cleanerList.length;
   const totalPages =
     pagination?.totalPages ||
     pagination?.pageCount ||
@@ -100,7 +102,7 @@ function Users() {
     },
   ];
 
-  const dataset = cleaners.map((cleaner) => ({
+  const dataset = cleanerList.map((cleaner) => ({
     ...cleaner,
     phone: cleaner.phone || cleaner.phoneNumber || "-",
     cleanerPercentage:

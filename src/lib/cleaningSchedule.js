@@ -21,11 +21,43 @@ export const MONTHLY_PATTERN_OPTIONS = [
   { label: "Weekday Pattern", value: "weekday_pattern" },
 ];
 
+export const MONTH_OPTIONS = [
+  { label: "Jan", value: 1 },
+  { label: "Feb", value: 2 },
+  { label: "Mar", value: 3 },
+  { label: "Apr", value: 4 },
+  { label: "May", value: 5 },
+  { label: "Jun", value: 6 },
+  { label: "Jul", value: 7 },
+  { label: "Aug", value: 8 },
+  { label: "Sep", value: 9 },
+  { label: "Oct", value: 10 },
+  { label: "Nov", value: 11 },
+  { label: "Dec", value: 12 },
+];
+
+const ALL_MONTH_VALUES = MONTH_OPTIONS.map((month) => month.value);
+const MONTH_DAY_LIMITS = {
+  1: 31,
+  2: 28,
+  3: 31,
+  4: 30,
+  5: 31,
+  6: 30,
+  7: 31,
+  8: 31,
+  9: 30,
+  10: 31,
+  11: 30,
+  12: 31,
+};
+
 export const SCHEDULE_ERROR_KEYS = [
   "scheduleDate",
   "scheduleStartTime",
   "scheduleEndTime",
   "scheduleDays",
+  "scheduleMonthlyMonths",
   "scheduleMonthlyDates",
   "scheduleMonthlyPattern",
 ];
@@ -54,6 +86,7 @@ export const createInitialCleaningScheduleState = () => ({
   },
   monthly: {
     patternType: "specific_dates",
+    months: [...ALL_MONTH_VALUES],
     dates: [],
     week: "first",
     day: "monday",
@@ -61,6 +94,23 @@ export const createInitialCleaningScheduleState = () => ({
     endTime: "",
   },
 });
+
+const normalizeMonths = (months) => {
+  const normalized = Array.from(
+    new Set(
+      (Array.isArray(months) ? months : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
+    )
+  ).sort((a, b) => a - b);
+  return normalized.length ? normalized : [...ALL_MONTH_VALUES];
+};
+
+export const getMaxDayForMonths = (months) => {
+  const normalizedMonths = normalizeMonths(months);
+  const limits = normalizedMonths.map((month) => MONTH_DAY_LIMITS[month] || 31);
+  return limits.length ? Math.max(...limits) : 31;
+};
 
 export const validateCleaningSchedule = (frequency, scheduleState) => {
   const errors = {};
@@ -110,6 +160,16 @@ export const validateCleaningSchedule = (frequency, scheduleState) => {
 
   if (frequency === "monthly") {
     const monthly = scheduleState.monthly || {};
+    const selectedMonths = Array.from(
+      new Set(
+        (Array.isArray(monthly.months) ? monthly.months : [])
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
+      )
+    );
+    if (!selectedMonths.length) {
+      errors.scheduleMonthlyMonths = "Select at least one month.";
+    }
     if (!monthly.startTime || !isTimeLike(monthly.startTime)) {
       errors.scheduleStartTime = "Start time is required.";
     }
@@ -127,6 +187,15 @@ export const validateCleaningSchedule = (frequency, scheduleState) => {
     if (monthly.patternType === "specific_dates") {
       if (!Array.isArray(monthly.dates) || monthly.dates.length === 0) {
         errors.scheduleMonthlyDates = "Select at least one date of month.";
+      } else {
+        const maxDayForMonths = getMaxDayForMonths(monthly.months);
+        const hasInvalidDate = monthly.dates.some(
+          (value) => Number(value) > maxDayForMonths
+        );
+        if (hasInvalidDate) {
+          errors.scheduleMonthlyDates =
+            "Selected date(s) are not valid for the chosen month(s).";
+        }
       }
     } else if (monthly.patternType === "weekday_pattern") {
       if (!monthly.week || !monthly.day) {
@@ -171,11 +240,17 @@ export const buildCleaningSchedulePayload = (frequency, scheduleState) => {
 
   if (frequency === "monthly") {
     const monthly = scheduleState.monthly;
+    const months = normalizeMonths(monthly.months);
     if (monthly.patternType === "specific_dates") {
+      const maxDayForMonths = getMaxDayForMonths(months);
       return {
         frequency: "monthly",
         pattern_type: "specific_dates",
-        dates: [...new Set(monthly.dates)].sort((a, b) => a - b),
+        months,
+        dates: [...new Set(monthly.dates)]
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 1 && value <= maxDayForMonths)
+          .sort((a, b) => a - b),
         start_time: monthly.startTime,
         end_time: monthly.endTime,
       };
@@ -184,6 +259,7 @@ export const buildCleaningSchedulePayload = (frequency, scheduleState) => {
     return {
       frequency: "monthly",
       pattern_type: "weekday_pattern",
+      months,
       week: monthly.week,
       day: monthly.day,
       start_time: monthly.startTime,

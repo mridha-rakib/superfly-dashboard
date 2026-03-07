@@ -21,6 +21,7 @@ const pageMeta = {
     subtitle: "Manage post-construction quotes & bookings",
   },
   "/users": { title: "Cleaners", subtitle: "Team roster" },
+  "/clients": { title: "Clients", subtitle: "Authorized and guest clients" },
   "/pricing": { title: "Pricing", subtitle: "Plans & rates" },
   "/job-reports": { title: "Job Reports", subtitle: "Performance overview" },
   "/settings": { title: "Settings", subtitle: "Configure your workspace" },

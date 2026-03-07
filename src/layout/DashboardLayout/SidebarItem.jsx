@@ -18,6 +18,7 @@ const iconMap = {
   "Post-Construction Bookings": CalendarCheck,
   "Service Requests": FileText,
   Cleaners: Users,
+  Clients: Users,
   Pricing: BadgeDollarSign,
   "Earnings Analytics": BadgeDollarSign,
   "Job Reports": FileText,

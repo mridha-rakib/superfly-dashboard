@@ -22,6 +22,7 @@ const Breadcrumb = () => {
   const pathMap = {
     "": "Dashboard",
     users: "Users",
+    clients: "Clients",
     view: "View",
     "content-moderation": "Content Moderation",
     analytics: "Analytics",

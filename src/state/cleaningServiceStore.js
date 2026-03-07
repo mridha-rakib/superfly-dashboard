@@ -91,6 +91,23 @@ export const useCleaningServiceStore = create((set, get) => ({
     }
   },
 
+  updateServiceDetails: async (serviceId, payload) => {
+    set({ isUpdating: true, error: null });
+    try {
+      const updated = await cleaningServiceApi.updateService(serviceId, payload);
+      set((state) => ({
+        services: (state.services || []).map((svc) =>
+          (svc._id || svc.id) === serviceId ? { ...svc, ...updated } : svc
+        ),
+        isUpdating: false,
+      }));
+      return updated;
+    } catch (error) {
+      set({ isUpdating: false, error: parseError(error) });
+      throw error;
+    }
+  },
+
   removeService: async (serviceId) => {
     set({ isDeleting: true, error: null });
     try {

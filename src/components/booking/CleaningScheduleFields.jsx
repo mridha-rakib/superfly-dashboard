@@ -1,8 +1,10 @@
 import {
+  MONTH_OPTIONS,
   MONTHLY_PATTERN_OPTIONS,
   MONTHLY_WEEK_OPTIONS,
   WEEKDAY_OPTIONS,
   createInitialCleaningScheduleState,
+  getMaxDayForMonths,
 } from "../../lib/cleaningSchedule";
 
 const labelClass = "text-sm font-semibold text-gray-800 mb-2";
@@ -14,6 +16,11 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
   const oneTime = safeSchedule.oneTime;
   const weekly = safeSchedule.weekly;
   const monthly = safeSchedule.monthly;
+  const defaultMonthValues = MONTH_OPTIONS.map((month) => month.value);
+  const selectedMonths = Array.isArray(monthly.months)
+    ? monthly.months
+    : defaultMonthValues;
+  const maxMonthlyDate = getMaxDayForMonths(selectedMonths);
 
   const applyScheduleUpdate = (updater) => {
     onScheduleChange((prevSchedule) => {
@@ -83,6 +90,35 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
         },
       };
     });
+  };
+
+  const toggleMonthlyMonth = (monthValue) => {
+    applyScheduleUpdate((prevSchedule) => {
+      const currentMonths = Array.isArray(prevSchedule.monthly.months)
+        ? prevSchedule.monthly.months
+        : defaultMonthValues;
+      const exists = currentMonths.includes(monthValue);
+      const months = exists
+        ? currentMonths.filter((value) => value !== monthValue)
+        : [...currentMonths, monthValue].sort((a, b) => a - b);
+      const maxDayForMonths = getMaxDayForMonths(months);
+      const dates = (prevSchedule.monthly.dates || []).filter(
+        (value) => Number(value) <= maxDayForMonths
+      );
+
+      return {
+        ...prevSchedule,
+        monthly: {
+          ...prevSchedule.monthly,
+          months,
+          dates,
+        },
+      };
+    });
+  };
+
+  const selectAllMonthlyMonths = () => {
+    setMonthlyField("months", defaultMonthValues);
   };
 
   return (
@@ -221,11 +257,55 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
             </div>
           </div>
 
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <label className={labelClass}>Months</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllMonthlyMonths}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-600 hover:border-gray-300"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthlyField("months", [])}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-600 hover:border-gray-300"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {MONTH_OPTIONS.map((month) => {
+                const selected = selectedMonths.includes(month.value);
+                return (
+                  <button
+                    key={month.value}
+                    type="button"
+                    onClick={() => toggleMonthlyMonth(month.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      selected
+                        ? "border-[#C85344] bg-[#C85344]/10 text-[#C85344]"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    {month.label}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.scheduleMonthlyMonths && (
+              <p className="mt-1 text-xs text-red-600">{errors.scheduleMonthlyMonths}</p>
+            )}
+          </div>
+
           {monthly.patternType === "specific_dates" && (
             <div>
               <label className={labelClass}>Specific Date(s) of Month</label>
               <div className="grid grid-cols-7 sm:grid-cols-10 lg:grid-cols-12 gap-2">
-                {Array.from({ length: 31 }, (_, index) => index + 1).map((date) => {
+                {Array.from({ length: maxMonthlyDate }, (_, index) => index + 1).map((date) => {
                   const selected = monthly.dates.includes(date);
                   return (
                     <button

@@ -27,6 +27,7 @@ import Users from "./pages/users/Users";
 import ViewUser from "./pages/users/ViewUser";
 import EditUser from "./pages/users/EditUser";
 import CreateUser from "./pages/users/CreateUser";
+import Clients from "./pages/clients/Clients";
 import Pricing from "./pages/pricing/Pricing";
 import JobReports from "./pages/jobreports/JobReports";
 import JobReportDetails from "./pages/jobreports/JobReportDetails";
@@ -124,6 +125,7 @@ function App() {
           <Route path="users/add" element={<CreateUser />} />
           <Route path="users/:id" element={<ViewUser />} />
           <Route path="users/:id/edit" element={<EditUser />} />
+          <Route path="clients" element={<Clients />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="job-reports" element={<JobReports />} />
           <Route path="job-reports/:reportId" element={<JobReportDetails />} />

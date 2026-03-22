@@ -32,7 +32,7 @@ const mapReportRow = (report) => {
     cleaner: cleaner?.fullName || cleaner?.email || "Cleaner",
     client: clientName,
     serviceType: quote?.serviceType || "Residential",
-    date: quote?.serviceDate || report?.createdAt,
+    date: report?.occurrenceDate || quote?.serviceDate || report?.createdAt,
     status: (report?.status || "").toLowerCase() === "approved" ? "Approved" : "Pending",
   };
 };

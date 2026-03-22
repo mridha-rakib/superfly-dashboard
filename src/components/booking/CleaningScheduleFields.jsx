@@ -576,7 +576,7 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
               )}
             </div>
             <div>
-              <label className={labelClass}>Repeat Until (Optional)</label>
+              <label className={labelClass}>Repeat Until</label>
               <input
                 type="date"
                 min={minScheduleDate}

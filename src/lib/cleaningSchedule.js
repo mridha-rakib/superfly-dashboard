@@ -315,9 +315,11 @@ export const validateCleaningSchedule = (frequency, scheduleState) => {
     ) {
       errors.scheduleEndTime = "End time must be after start time.";
     }
-    if (weekly.repeatUntil && !isDateLike(weekly.repeatUntil)) {
+    if (!weekly.repeatUntil) {
+      errors.scheduleDate = "Repeat Until is required for weekly bookings.";
+    } else if (!isDateLike(weekly.repeatUntil)) {
       errors.scheduleDate = "Repeat Until must be a valid date.";
-    } else if (weekly.repeatUntil && weekly.repeatUntil < minScheduleDate) {
+    } else if (weekly.repeatUntil < minScheduleDate) {
       errors.scheduleDate = "Repeat Until cannot be in the past.";
     }
   }

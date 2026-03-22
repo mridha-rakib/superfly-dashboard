@@ -83,6 +83,41 @@ const parseActionError = (err, fallback) =>
   err?.message ||
   fallback;
 
+const mapCleanerProgressLabel = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "completed":
+      return "Completed";
+    case "waiting-for-admin-approval":
+      return "Awaiting Approval";
+    case "ongoing":
+      return "On Site";
+    default:
+      return "Assigned";
+  }
+};
+
+const cleanerProgressTone = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "completed":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    case "waiting-for-admin-approval":
+      return "bg-purple-50 text-purple-700 border-purple-200";
+    case "ongoing":
+      return "bg-orange-50 text-orange-700 border-orange-200";
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+};
+
+const cleanerPaymentTone = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "paid":
+      return "bg-green-50 text-green-700 border-green-200";
+    default:
+      return "bg-amber-50 text-amber-700 border-amber-200";
+  }
+};
+
 function ViewBooking() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -250,7 +285,21 @@ function ViewBooking() {
           };
         });
 
-  const cleanerCount = resolvedCleaners.length || assignedCleanerIds.length || 0;
+  const cleanerProgressMap = new Map(
+    (quote.cleanerProgress || []).map((entry) => [String(entry.cleanerId), entry])
+  );
+  const resolvedCleanersWithProgress = resolvedCleaners.map((cleaner) => {
+    const cleanerId = String(cleaner._id || cleaner.id || "");
+    const progress = cleaner.cleanerProgress || cleanerProgressMap.get(cleanerId);
+    return {
+      ...cleaner,
+      cleanerId,
+      cleanerProgress: progress,
+    };
+  });
+
+  const cleanerCount =
+    resolvedCleanersWithProgress.length || assignedCleanerIds.length || 0;
   const totalPriceValue =
     typeof quote.totalPrice === "number" && !Number.isNaN(quote.totalPrice)
       ? quote.totalPrice
@@ -266,11 +315,9 @@ function ViewBooking() {
       ? totalCleanerSharePct / cleanerCount
       : undefined;
 
-  const perCleanerPayout = (() => {
+  const fallbackPerCleanerPayout = (() => {
     if (cleanerEarningAmountRaw !== undefined) {
-      return cleanerCount > 0
-        ? cleanerEarningAmountRaw / Math.max(cleanerCount, 1)
-        : cleanerEarningAmountRaw;
+      return cleanerEarningAmountRaw;
     }
     if (totalPriceValue !== undefined && perCleanerPct !== undefined) {
       return (totalPriceValue * perCleanerPct) / 100;
@@ -278,12 +325,37 @@ function ViewBooking() {
     return undefined;
   })();
 
-  const totalCleanerPayout =
-    perCleanerPayout !== undefined && cleanerCount > 0
-      ? perCleanerPayout * cleanerCount
-      : cleanerEarningAmountRaw !== undefined
-      ? cleanerEarningAmountRaw
-      : undefined;
+  const cleanerRows = resolvedCleanersWithProgress.map((cleaner) => {
+    const progress = cleaner.cleanerProgress;
+    const individualPayout =
+      typeof progress?.cleanerEarningAmount === "number" &&
+      !Number.isNaN(progress.cleanerEarningAmount)
+        ? progress.cleanerEarningAmount
+        : fallbackPerCleanerPayout;
+    const individualPct =
+      typeof progress?.cleanerPercentage === "number" &&
+      !Number.isNaN(progress.cleanerPercentage)
+        ? progress.cleanerPercentage
+        : perCleanerPct;
+
+    return {
+      ...cleaner,
+      cleanerProgress: progress,
+      individualPayout,
+      individualPct,
+      progressLabel: mapCleanerProgressLabel(progress?.cleanerStatus),
+    };
+  });
+
+  const perCleanerPayout = cleanerRows[0]?.individualPayout ?? fallbackPerCleanerPayout;
+  const totalCleanerPayout = cleanerRows.length
+    ? cleanerRows.reduce(
+        (sum, cleaner) => sum + Number(cleaner.individualPayout || 0),
+        0
+      )
+    : fallbackPerCleanerPayout !== undefined && cleanerCount > 0
+    ? fallbackPerCleanerPayout * cleanerCount
+    : cleanerEarningAmountRaw;
 
   const adminEarning =
     totalPriceValue !== undefined && totalCleanerPayout !== undefined
@@ -294,13 +366,15 @@ function ViewBooking() {
     totalCleanerPayout !== undefined ? totalCleanerPayout : cleanerEarningAmountRaw
   );
   const adminEarningDisplay = formatCurrency(adminEarning);
-  const paymentAmountDisplay = formatCurrency(
+  const paymentAmountValue =
     quote.paymentAmount !== undefined && quote.paymentAmount !== null
-      ? quote.paymentAmount
+      ? quote.serviceType === "residential"
+        ? Number(quote.paymentAmount) / 100
+        : quote.paymentAmount
       : quote.amountCharged !== undefined && quote.amountCharged !== null
       ? quote.amountCharged
-      : totalPriceValue
-  );
+      : totalPriceValue;
+  const paymentAmountDisplay = formatCurrency(paymentAmountValue);
   const paidAtDisplay = formatDateTimeValue(quote.paidAt);
   const paymentIntentDisplay = quote.paymentIntentId
     ? `${quote.paymentIntentId.slice(0, 12)}...`
@@ -321,6 +395,28 @@ function ViewBooking() {
     quote.clientAddress ||
     quote.city ||
     "-";
+  const cleanerProgressSummary = quote.cleanerProgressSummary || {
+    totalAssigned: cleanerCount,
+    pending: cleanerRows.filter(
+      (cleaner) => cleaner.cleanerProgress?.cleanerStatus === "pending"
+    ).length,
+    inProgress: cleanerRows.filter(
+      (cleaner) => cleaner.cleanerProgress?.cleanerStatus === "ongoing"
+    ).length,
+    reportSubmitted: cleanerRows.filter(
+      (cleaner) =>
+        cleaner.cleanerProgress?.cleanerStatus === "waiting-for-admin-approval"
+    ).length,
+    completed: cleanerRows.filter(
+      (cleaner) => cleaner.cleanerProgress?.cleanerStatus === "completed"
+    ).length,
+    paid: cleanerRows.filter(
+      (cleaner) => cleaner.cleanerProgress?.paymentStatus === "paid"
+    ).length,
+    unpaid: cleanerRows.filter(
+      (cleaner) => cleaner.cleanerProgress?.paymentStatus !== "paid"
+    ).length,
+  };
 
   const handleCloseBooking = async () => {
     if (!quoteId) return;
@@ -820,29 +916,76 @@ function ViewBooking() {
 
       <section className={sectionCardClass}>
         <h2 className="text-2xl font-semibold mb-5 text-gray-800">Assigned Cleaner(s)</h2>
-        {resolvedCleaners && resolvedCleaners.length ? (
+        {cleanerRows.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {resolvedCleaners.map((c) => (
+            {cleanerRows.map((cleaner) => (
               <div
-                key={c._id || c.id || c.fullName}
+                key={cleaner._id || cleaner.id || cleaner.fullName}
                 className={statCardClass}
               >
-                <p className="font-semibold text-gray-900">{c.fullName || "Cleaner"}</p>
-                <p className="text-sm text-gray-600">{c.email || "No email"}</p>
-                <p className="text-sm text-gray-600">{c.phone || "No phone"}</p>
-                {perCleanerPayout !== undefined && (
-                  <p className="mt-2 text-sm text-gray-700">
-                    Payout:{" "}
-                    <span className="font-semibold text-gray-900">
-                      ${perCleanerPayout.toFixed(2)}
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {cleaner.fullName || "Cleaner"}
+                    </p>
+                    <p className="text-sm text-gray-600">{cleaner.email || "No email"}</p>
+                    <p className="text-sm text-gray-600">{cleaner.phone || "No phone"}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${cleanerProgressTone(
+                        cleaner.cleanerProgress?.cleanerStatus
+                      )}`}
+                    >
+                      {cleaner.progressLabel}
                     </span>
-                    {perCleanerPct !== undefined && (
-                      <span className="text-xs text-gray-500 ml-1">
-                        ({perCleanerPct.toFixed(2)}%)
-                      </span>
-                    )}
-                  </p>
-                )}
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${cleanerPaymentTone(
+                        cleaner.cleanerProgress?.paymentStatus
+                      )}`}
+                    >
+                      {(cleaner.cleanerProgress?.paymentStatus || "pending").toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                    <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                      Payout
+                    </p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {formatCurrency(cleaner.individualPayout)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                    <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                      Share
+                    </p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {cleaner.individualPct !== undefined
+                        ? `${Number(cleaner.individualPct).toFixed(2)}%`
+                        : "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                    <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                      Report
+                    </p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {cleaner.cleanerProgress?.reportStatus
+                        ? cleaner.cleanerProgress.reportStatus.replace(/_/g, " ")
+                        : "Not submitted"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-white p-3">
+                    <p className="text-[11px] uppercase text-gray-500 font-semibold">
+                      Approved At
+                    </p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {formatDateTimeValue(cleaner.cleanerProgress?.reportApprovedAt)}
+                    </p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -888,6 +1031,32 @@ function ViewBooking() {
           >
             Payment: {paymentLabel}
           </span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className={statCardClass}>
+            <p className="text-xs uppercase text-gray-500 font-semibold">Completed</p>
+            <p className="text-lg font-bold text-gray-900">
+              {cleanerProgressSummary.completed}/{cleanerProgressSummary.totalAssigned}
+            </p>
+          </div>
+          <div className={statCardClass}>
+            <p className="text-xs uppercase text-gray-500 font-semibold">Awaiting Approval</p>
+            <p className="text-lg font-bold text-gray-900">
+              {cleanerProgressSummary.reportSubmitted}
+            </p>
+          </div>
+          <div className={statCardClass}>
+            <p className="text-xs uppercase text-gray-500 font-semibold">On Site</p>
+            <p className="text-lg font-bold text-gray-900">
+              {cleanerProgressSummary.inProgress}
+            </p>
+          </div>
+          <div className={statCardClass}>
+            <p className="text-xs uppercase text-gray-500 font-semibold">Paid Cleaners</p>
+            <p className="text-lg font-bold text-gray-900">
+              {cleanerProgressSummary.paid}/{cleanerProgressSummary.totalAssigned}
+            </p>
+          </div>
         </div>
       </section>
 

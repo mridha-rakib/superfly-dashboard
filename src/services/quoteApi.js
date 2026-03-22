@@ -8,8 +8,8 @@ export const quoteApi = {
     return unwrap(response);
   },
 
-  getById: async (id) => {
-    const response = await httpClient.get(`/quotes/${id}`);
+  getById: async (id, params = {}) => {
+    const response = await httpClient.get(`/quotes/${id}`, { params });
     return unwrap(response);
   },
 

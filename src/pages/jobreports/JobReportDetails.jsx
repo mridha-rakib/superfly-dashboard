@@ -79,6 +79,14 @@ function JobReportDetails() {
 
   const quote = report?.quote;
   const cleaner = report?.cleaner;
+  const cleanerProgress =
+    quote?.cleanerProgress?.find(
+      (entry) => String(entry.cleanerId) === String(cleaner?._id || report?.cleanerId)
+    ) || null;
+  const cleanerPayout =
+    typeof cleanerProgress?.cleanerEarningAmount === "number"
+      ? cleanerProgress.cleanerEarningAmount
+      : null;
 
   const clientName =
     quote?.companyName ||
@@ -171,8 +179,24 @@ function JobReportDetails() {
           <InfoRow label="Client" value={clientName} />
           <InfoRow label="Cleaner" value={cleaner?.fullName || cleaner?.email || report.cleanerId} />
           <InfoRow label="Service Type" value={quote?.serviceType || "Residential"} />
-          <InfoRow label="Date" value={fmtDateTime(quote?.serviceDate || report.createdAt)} />
+          <InfoRow
+            label="Occurrence Date"
+            value={report?.occurrenceDate || quote?.serviceDate || "-"}
+          />
+          <InfoRow label="Submitted On" value={fmtDateTime(report.createdAt)} />
           <InfoRow label="Status" value={report.status === "approved" ? "Approved" : "Pending"} />
+          <InfoRow
+            label="Cleaner Payout"
+            value={
+              cleanerPayout !== null
+                ? `$${Number(cleanerPayout).toFixed(2)}`
+                : "-"
+            }
+          />
+          <InfoRow
+            label="Cleaner Payment"
+            value={(cleanerProgress?.paymentStatus || "pending").toUpperCase()}
+          />
             <InfoRow
               label="Address"
               value={quote?.businessAddress || quote?.clientAddress || "-"}

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
+import { getQuoteSchedulePresentation } from "../../lib/quoteSchedule";
 import { formatTimeTo12Hour } from "../../lib/time-utils";
 
 const statusColors = {
@@ -232,14 +233,13 @@ function ViewBooking() {
       : Number.isNaN(Number(squareFootRaw))
       ? String(squareFootRaw)
       : Number(squareFootRaw).toLocaleString();
-  const cleaningFrequency = quote.cleaningFrequency
-    ? quote.cleaningFrequency
-        .toString()
-        .replace(/_/g, "-")
-        .split("-")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ")
-    : "-";
+  const schedulePresentation = getQuoteSchedulePresentation(quote);
+  const cleaningFrequency = schedulePresentation.frequencyLabel || "-";
+  const recurringScheduleDetails =
+    quote.cleaningSchedule?.frequency &&
+    quote.cleaningSchedule.frequency !== "one_time"
+      ? schedulePresentation.detailItems
+      : [];
   const cleaningServiceItems = (() => {
     if (Array.isArray(quote.cleaningServices) && quote.cleaningServices.length) {
       return quote.cleaningServices.map((s) =>
@@ -270,6 +270,17 @@ function ViewBooking() {
       <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
     </div>
   );
+
+  const renderScheduleDetailCards = (items, valueClassName = "text-lg font-bold text-gray-900") =>
+    items.map((item) => (
+      <div
+        key={`${item.label}-${item.value}`}
+        className={statCardClass}
+      >
+        <p className="text-xs uppercase text-gray-500 font-semibold">{item.label}</p>
+        <p className={`${valueClassName} mt-1`}>{item.value}</p>
+      </div>
+    ));
 
   const resolvedCleaners =
     quote.assignedCleaners && quote.assignedCleaners.length
@@ -506,7 +517,7 @@ function ViewBooking() {
             <h2 className="text-2xl font-bold text-gray-900">Building & Services</h2>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
           <div className={statCardClass}>
             <p className="text-xs uppercase text-gray-500 font-semibold">
               Building Size (sq ft)
@@ -517,6 +528,7 @@ function ViewBooking() {
             <p className="text-xs uppercase text-gray-500 font-semibold">Cleaning Frequency</p>
             <p className="text-lg font-bold text-gray-900">{cleaningFrequency}</p>
           </div>
+          {renderScheduleDetailCards(recurringScheduleDetails)}
           <div className={`${statCardClass} md:col-span-1`}>
             <p className="text-xs uppercase text-gray-500 font-semibold">Service Types</p>
             {cleaningServiceItems.length ? (
@@ -722,9 +734,11 @@ function ViewBooking() {
 
       <section className={sectionCardClass}>
         <h2 className="text-2xl font-semibold mb-5 text-gray-800">Scope & Schedule</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {infoItem("Preferred Date", preferredDateLabel)}
           {infoItem("Preferred Time", preferredTimeLabel)}
+          {infoItem("Cleaning Frequency", cleaningFrequency)}
+          {recurringScheduleDetails.map((item) => infoItem(item.label, item.value))}
           {infoItem("Total Square Footage (sq ft)", squareFoot)}
           {infoItem("Service Types", cleaningServicesDisplay)}
           {infoItem("Special Request", specialRequest, 2)}

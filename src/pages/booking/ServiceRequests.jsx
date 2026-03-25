@@ -2,6 +2,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
+import { getQuoteSchedulePresentation } from "../../lib/quoteSchedule";
 import { useQuoteStore } from "../../state/quoteStore";
 
 const manualTypes = ["commercial", "post_construction"];
@@ -264,6 +265,22 @@ function ServiceRequests() {
           ) : (
             commercialRequests.map((quote) => {
               const quoteId = quote._id || quote.id;
+              const schedulePresentation = getQuoteSchedulePresentation(quote);
+              const scheduleSummary =
+                schedulePresentation.shortSummary ||
+                [quote.serviceDate, quote.preferredTime].filter(Boolean).join(" - ") ||
+                "-";
+              const scheduleMeta = [
+                schedulePresentation.timeRangeLabel
+                  ? `Time: ${schedulePresentation.timeRangeLabel}`
+                  : null,
+                quote.cleaningSchedule?.frequency !== "one_time" &&
+                schedulePresentation.primaryDateLabel
+                  ? `Next service: ${schedulePresentation.primaryDateLabel}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" • ");
               return (
                 <div
                   key={quoteId}
@@ -287,8 +304,11 @@ function ServiceRequests() {
                         {quote.companyName || quote.contactName || "Client"}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Commercial - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                        Commercial • {scheduleSummary}
                       </p>
+                      {scheduleMeta && (
+                        <p className="text-xs text-gray-400">{scheduleMeta}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -340,6 +360,22 @@ function ServiceRequests() {
           ) : (
             postConstructionRequests.map((quote) => {
               const quoteId = quote._id || quote.id;
+              const schedulePresentation = getQuoteSchedulePresentation(quote);
+              const scheduleSummary =
+                schedulePresentation.shortSummary ||
+                [quote.serviceDate, quote.preferredTime].filter(Boolean).join(" - ") ||
+                "-";
+              const scheduleMeta = [
+                schedulePresentation.timeRangeLabel
+                  ? `Time: ${schedulePresentation.timeRangeLabel}`
+                  : null,
+                quote.cleaningSchedule?.frequency !== "one_time" &&
+                schedulePresentation.primaryDateLabel
+                  ? `Next service: ${schedulePresentation.primaryDateLabel}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" • ");
               return (
                 <div
                   key={quoteId}
@@ -363,8 +399,11 @@ function ServiceRequests() {
                         {quote.companyName || quote.contactName || "Client"}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Post-Construction - {quote.serviceDate || "-"} - {quote.preferredTime || "-"}
+                        Post-Construction • {scheduleSummary}
                       </p>
+                      {scheduleMeta && (
+                        <p className="text-xs text-gray-400">{scheduleMeta}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { getErrorMessage } from "@/lib/api-error";
+import {
+  getFieldErrorId,
+  useInlineFormErrors,
+} from "@/hooks/useInlineFormErrors";
+import { toast } from "@/lib/notify";
 import Button from "../../components/ui/Button";
 import { useCleanerStore } from "../../state/cleanerStore";
 
@@ -27,6 +32,23 @@ function EditUser() {
     cleanerPercentage: "",
     accountStatus: "active",
   });
+  const { getFieldA11yProps, getFieldError, validateField } = useInlineFormErrors();
+
+  const getFieldClassName = (fieldName) =>
+    `p-3 rounded-lg border focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none ${
+      getFieldError(fieldName)
+        ? "border-red-500 focus:border-red-500"
+        : "border-gray-300"
+    }`;
+
+  const validateCleanerPercentage = (value) => {
+    if (value === "") return "";
+    const pct = Number(value);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      return "Cleaner percentage must be between 0 and 100.";
+    }
+    return "";
+  };
 
   useEffect(() => {
     fetchCleanerById(id).catch(() => {});
@@ -49,12 +71,40 @@ function EditUser() {
     }
   }, [id, selectedCleaner]);
 
-  const handleChange = (field, value) => {
+  const handleChange = (field, value, event) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (event && getFieldError(field)) {
+      validateField(field, event.target, {
+        label:
+          field === "fullName"
+            ? "Full name"
+            : field === "cleanerPercentage"
+            ? "Cleaner percentage"
+            : "Email",
+        customValidator:
+          field === "cleanerPercentage" ? validateCleanerPercentage : undefined,
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
+
+    const isValid = [
+      ["fullName", "Full name"],
+      ["email", "Email"],
+      ["cleanerPercentage", "Cleaner percentage", validateCleanerPercentage],
+    ].every(([field, label, customValidator]) =>
+      validateField(field, form.elements.namedItem(field), {
+        label,
+        customValidator,
+      })
+    );
+
+    if (!isValid) {
+      return;
+    }
 
     const payload = {
       fullName: formData.fullName.trim(),
@@ -78,9 +128,7 @@ function EditUser() {
       toast.success("Cleaner updated successfully");
       navigate(`/users/${id}`);
     } catch (err) {
-      const message =
-        err?.response?.data?.message || err?.message || "Failed to update cleaner.";
-      toast.error(message);
+      toast.error(getErrorMessage(err, "Failed to update cleaner."));
     } finally {
       clearError();
     }
@@ -123,10 +171,17 @@ function EditUser() {
             type="text"
             name="fullName"
             value={formData.fullName}
-            onChange={(e) => handleChange("fullName", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("fullName", e.target.value, e)}
+            onBlur={(e) => validateField("fullName", e.target, { label: "Full name" })}
+            className={getFieldClassName("fullName")}
             required
+            {...getFieldA11yProps("fullName")}
           />
+          {getFieldError("fullName") && (
+            <p id={getFieldErrorId("fullName")} className="mt-1 text-sm text-red-600">
+              {getFieldError("fullName")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col">
@@ -135,10 +190,17 @@ function EditUser() {
             type="email"
             name="email"
             value={formData.email}
-            onChange={(e) => handleChange("email", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("email", e.target.value, e)}
+            onBlur={(e) => validateField("email", e.target, { label: "Email" })}
+            className={getFieldClassName("email")}
             required
+            {...getFieldA11yProps("email")}
           />
+          {getFieldError("email") && (
+            <p id={getFieldErrorId("email")} className="mt-1 text-sm text-red-600">
+              {getFieldError("email")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col">
@@ -147,8 +209,8 @@ function EditUser() {
             type="text"
             name="phoneNumber"
             value={formData.phoneNumber}
-            onChange={(e) => handleChange("phoneNumber", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("phoneNumber", e.target.value, e)}
+            className={getFieldClassName("phoneNumber")}
           />
         </div>
 
@@ -158,8 +220,8 @@ function EditUser() {
             type="text"
             name="address"
             value={formData.address}
-            onChange={(e) => handleChange("address", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("address", e.target.value, e)}
+            className={getFieldClassName("address")}
           />
         </div>
 
@@ -169,12 +231,27 @@ function EditUser() {
             type="number"
             name="cleanerPercentage"
             value={formData.cleanerPercentage}
-            onChange={(e) => handleChange("cleanerPercentage", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("cleanerPercentage", e.target.value, e)}
+            onBlur={(e) =>
+              validateField("cleanerPercentage", e.target, {
+                label: "Cleaner percentage",
+                customValidator: validateCleanerPercentage,
+              })
+            }
+            className={getFieldClassName("cleanerPercentage")}
             min={0}
             max={100}
             step="0.1"
+            {...getFieldA11yProps("cleanerPercentage")}
           />
+          {getFieldError("cleanerPercentage") && (
+            <p
+              id={getFieldErrorId("cleanerPercentage")}
+              className="mt-1 text-sm text-red-600"
+            >
+              {getFieldError("cleanerPercentage")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col">
@@ -182,8 +259,8 @@ function EditUser() {
           <select
             name="accountStatus"
             value={formData.accountStatus}
-            onChange={(e) => handleChange("accountStatus", e.target.value)}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#C85344]/20 focus:outline-none"
+            onChange={(e) => handleChange("accountStatus", e.target.value, e)}
+            className={getFieldClassName("accountStatus")}
           >
             {statusOptions.map((status) => (
               <option key={status} value={status}>
@@ -207,3 +284,4 @@ function EditUser() {
 }
 
 export default EditUser;
+

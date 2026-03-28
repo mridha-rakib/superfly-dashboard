@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   MONTH_OPTIONS,
   MONTHLY_PATTERN_OPTIONS,
@@ -11,12 +12,14 @@ import {
   isMonthDateSelectable,
   isMonthSelectableForYear,
 } from "../../lib/cleaningSchedule";
+import { formatTimeTo12Hour, parseTimeTo24Hour } from "../../lib/time-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const labelClass = "text-sm font-semibold text-gray-800 mb-2";
 const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#C85344] focus:ring-2 focus:ring-[#C85344]/20 transition";
 const calendarWeekdays = ["S", "M", "T", "W", "T", "F", "S"];
+const timePlaceholder = "10:00 AM";
 
 const normalizeMonthList = (months) =>
   Array.from(
@@ -26,6 +29,54 @@ const normalizeMonthList = (months) =>
         .filter((value) => Number.isInteger(value) && value >= 1 && value <= 12)
     )
   ).sort((a, b) => a - b);
+
+const isNormalizedTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
+
+function TimeTextField({ value, onChange, className, placeholder = timePlaceholder }) {
+  const [draftValue, setDraftValue] = useState(value ? formatTimeTo12Hour(value) : "");
+
+  useEffect(() => {
+    setDraftValue(value ? formatTimeTo12Hour(value) : "");
+  }, [value]);
+
+  const commitValue = (nextValue) => {
+    const trimmedValue = nextValue.trim();
+    if (!trimmedValue) {
+      setDraftValue("");
+      onChange("");
+      return;
+    }
+
+    const normalized = parseTimeTo24Hour(trimmedValue);
+    if (!isNormalizedTime(normalized)) {
+      setDraftValue(value ? formatTimeTo12Hour(value) : "");
+      return;
+    }
+
+    onChange(normalized);
+    setDraftValue(formatTimeTo12Hour(normalized));
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="text"
+      autoComplete="off"
+      placeholder={placeholder}
+      value={draftValue}
+      onChange={(event) => setDraftValue(event.target.value.toUpperCase())}
+      onBlur={(event) => commitValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commitValue(event.currentTarget.value);
+          event.currentTarget.blur();
+        }
+      }}
+      className={className}
+    />
+  );
+}
 
 function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange }) {
   const safeSchedule = schedule || createInitialCleaningScheduleState();
@@ -498,10 +549,9 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
           </div>
           <div>
             <label className={labelClass}>Start Time</label>
-            <input
-              type="time"
+            <TimeTextField
               value={oneTime.startTime}
-              onChange={(event) => setOneTimeField("startTime", event.target.value)}
+              onChange={(value) => setOneTimeField("startTime", value)}
               className={inputClass}
             />
             {errors.scheduleStartTime && (
@@ -510,10 +560,9 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
           </div>
           <div>
             <label className={labelClass}>End Time</label>
-            <input
-              type="time"
+            <TimeTextField
               value={oneTime.endTime}
-              onChange={(event) => setOneTimeField("endTime", event.target.value)}
+              onChange={(value) => setOneTimeField("endTime", value)}
               className={inputClass}
             />
             {errors.scheduleEndTime && (
@@ -553,10 +602,9 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className={labelClass}>Start Time</label>
-              <input
-                type="time"
+              <TimeTextField
                 value={weekly.startTime}
-                onChange={(event) => setWeeklyField("startTime", event.target.value)}
+                onChange={(value) => setWeeklyField("startTime", value)}
                 className={inputClass}
               />
               {errors.scheduleStartTime && (
@@ -565,10 +613,9 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
             </div>
             <div>
               <label className={labelClass}>End Time</label>
-              <input
-                type="time"
+              <TimeTextField
                 value={weekly.endTime}
-                onChange={(event) => setWeeklyField("endTime", event.target.value)}
+                onChange={(value) => setWeeklyField("endTime", value)}
                 className={inputClass}
               />
               {errors.scheduleEndTime && (
@@ -876,15 +923,10 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
                         <label className="mb-1 block text-xs font-semibold text-gray-600">
                           Start Time
                         </label>
-                        <input
-                          type="time"
+                        <TimeTextField
                           value={monthTime.startTime}
-                          onChange={(event) =>
-                            setMonthlyMonthTime(
-                              monthValue,
-                              "startTime",
-                              event.target.value
-                            )
+                          onChange={(value) =>
+                            setMonthlyMonthTime(monthValue, "startTime", value)
                           }
                           className={inputClass}
                         />
@@ -893,11 +935,10 @@ function CleaningScheduleFields({ frequency, schedule, errors, onScheduleChange 
                         <label className="mb-1 block text-xs font-semibold text-gray-600">
                           End Time
                         </label>
-                        <input
-                          type="time"
+                        <TimeTextField
                           value={monthTime.endTime}
-                          onChange={(event) =>
-                            setMonthlyMonthTime(monthValue, "endTime", event.target.value)
+                          onChange={(value) =>
+                            setMonthlyMonthTime(monthValue, "endTime", value)
                           }
                           className={inputClass}
                         />

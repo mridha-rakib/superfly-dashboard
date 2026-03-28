@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import superflyLogo from "../../assets/superfly_logo.svg";
 import { useAuthStore } from "../../state/authStore";
 
@@ -171,3 +171,4 @@ function Login() {
 }
 
 export default Login;
+

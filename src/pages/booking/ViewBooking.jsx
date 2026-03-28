@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import Button from "../../components/ui/Button";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
@@ -1161,3 +1161,4 @@ function ViewBooking() {
 }
 
 export default ViewBooking;
+

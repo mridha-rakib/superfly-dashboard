@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { formatDistanceToNow } from "date-fns";
 import { Bell } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { getErrorMessage } from "@/lib/api-error";
 import userPlaceholder from "../../assets/images/user-dummy.png";
 import { sidebarLinks } from "../../data/dashboardData";
 import { quoteApi } from "../../services/quoteApi";
@@ -38,11 +39,7 @@ const eventLabelMap = {
   booking_completed: "Completed",
 };
 
-const parseError = (error) =>
-  error?.response?.data?.message ||
-  error?.response?.data?.error ||
-  error?.message ||
-  "Failed to load notifications.";
+const parseError = (error) => getErrorMessage(error, "Failed to load notifications.");
 
 const formatRole = (role) =>
   (role || "admin")

@@ -1,16 +1,9 @@
 import { create } from "zustand";
+import { getErrorMessage } from "../lib/api-error";
 import { dashboardApi } from "../services/dashboardApi";
 
-const parseError = (error) => {
-  if (!error) return "Something went wrong. Please try again.";
-  if (typeof error === "string") return error;
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    "Unable to complete the request."
-  );
-};
+const parseError = (error, fallback = "Unable to complete the request.") =>
+  getErrorMessage(error, fallback);
 
 const initialState = {
   stats: null,

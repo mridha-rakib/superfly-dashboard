@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { useCleaningReportStore } from "../../state/cleaningReportStore";
 
 const statusTone = (status) => {
@@ -224,3 +224,4 @@ function JobReports() {
 }
 
 export default JobReports;
+

@@ -1,15 +1,9 @@
 import { create } from "zustand";
+import { getErrorMessage } from "../lib/api-error";
 import { cleaningServiceApi } from "../services/cleaningServiceApi";
 
-const parseError = (error) => {
-  if (!error) return "Something went wrong. Please try again.";
-  if (typeof error === "string") return error;
-  const message =
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message;
-  return message || "Unable to complete the request.";
-};
+const parseError = (error, fallback = "Unable to complete the request.") =>
+  getErrorMessage(error, fallback);
 
 const initialState = {
   services: [],
@@ -22,7 +16,7 @@ const initialState = {
   error: null,
 };
 
-export const useCleaningServiceStore = create((set, get) => ({
+export const useCleaningServiceStore = create((set) => ({
   ...initialState,
 
   clearError: () => set({ error: null }),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import {
   useGetSingleResourceQuery,
   useUpdateResourceMutation,
@@ -670,3 +670,4 @@ export default function EditResourceWithBoundary() {
     </ErrorBoundary>
   );
 }
+

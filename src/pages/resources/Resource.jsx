@@ -8,7 +8,7 @@ import {
 import { useGetCategoriesQuery } from "../../store/features/api/categoryApiSlice";
 import { ViewIcon, Edit01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
 import { useState, useEffect } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 
 export default function Resource() {
   const navigate = useNavigate();
@@ -244,3 +244,4 @@ export default function Resource() {
     </div>
   );
 }
+

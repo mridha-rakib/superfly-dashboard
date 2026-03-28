@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { Edit01Icon, Delete02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { Sparkles, UserPlus } from "lucide-react";
 import Table from "../../components/ui/Table";
@@ -209,3 +209,4 @@ function Users() {
 }
 
 export default Users;
+

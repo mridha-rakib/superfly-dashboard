@@ -1,7 +1,7 @@
-ï»¿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronDown, Trash2 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { getQuoteSchedulePresentation } from "../../lib/quoteSchedule";
 import { useQuoteStore } from "../../state/quoteStore";
 
@@ -280,7 +280,7 @@ function ServiceRequests() {
                   : null,
               ]
                 .filter(Boolean)
-                .join(" â€¢ ");
+                .join(" • ");
               return (
                 <div
                   key={quoteId}
@@ -304,7 +304,7 @@ function ServiceRequests() {
                         {quote.companyName || quote.contactName || "Client"}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Commercial â€¢ {scheduleSummary}
+                        Commercial • {scheduleSummary}
                       </p>
                       {scheduleMeta && (
                         <p className="text-xs text-gray-400">{scheduleMeta}</p>
@@ -375,7 +375,7 @@ function ServiceRequests() {
                   : null,
               ]
                 .filter(Boolean)
-                .join(" â€¢ ");
+                .join(" • ");
               return (
                 <div
                   key={quoteId}
@@ -399,7 +399,7 @@ function ServiceRequests() {
                         {quote.companyName || quote.contactName || "Client"}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Post-Construction â€¢ {scheduleSummary}
+                        Post-Construction • {scheduleSummary}
                       </p>
                       {scheduleMeta && (
                         <p className="text-xs text-gray-400">{scheduleMeta}</p>
@@ -440,3 +440,4 @@ function ServiceRequests() {
 }
 
 export default ServiceRequests;
+

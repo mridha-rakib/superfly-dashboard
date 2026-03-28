@@ -2,7 +2,7 @@ import { Delete02Icon, Edit01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import {
   Dialog,
   DialogContent,
@@ -816,3 +816,4 @@ function Pricing() {
 }
 
 export default Pricing;
+

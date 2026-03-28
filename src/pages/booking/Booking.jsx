@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { Edit3, Eye, Trash2, UserPlus, Loader2, Search } from "lucide-react";
 import { useQuoteStore } from "../../state/quoteStore";
 import { useCleanerStore } from "../../state/cleanerStore";
@@ -1128,3 +1128,4 @@ function Booking({ presetService }) {
 }
 
 export default Booking;
+

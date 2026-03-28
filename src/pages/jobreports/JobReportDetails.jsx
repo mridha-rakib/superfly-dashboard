@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { useCleaningReportStore } from "../../state/cleaningReportStore";
 import { formatTimeFromDate } from "../../lib/time-utils";
 
@@ -244,3 +244,4 @@ const InfoRow = ({ label, value, span = false }) => (
 );
 
 export default JobReportDetails;
+

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { hydrateError } from "./api-error";
 
 
 const API_BASE_URL =
@@ -69,7 +70,7 @@ httpClient.interceptors.response.use(
       typeof refreshAccessToken === "function";
 
     if (!shouldRefresh) {
-      return Promise.reject(error);
+      return Promise.reject(hydrateError(error));
     }
 
     // Queue concurrent 401s while a refresh is in progress
@@ -104,7 +105,7 @@ httpClient.interceptors.response.use(
     } catch (refreshError) {
       flushQueue(refreshError, null);
       onUnauthorizedLogout?.();
-      return Promise.reject(refreshError);
+      return Promise.reject(hydrateError(refreshError));
     } finally {
       isRefreshing = false;
     }

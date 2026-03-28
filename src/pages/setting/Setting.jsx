@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import avatar1 from "../../assets/images/avatar1.jpg";
 import { authApi } from "../../services/authApi";
 import { userApi } from "../../services/userApi";
@@ -411,3 +411,4 @@ function Setting() {
 }
 
 export default Setting;
+

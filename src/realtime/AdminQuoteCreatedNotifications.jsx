@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { io } from "socket.io-client";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { useAuthStore } from "../state/authStore";
 
 const ADMIN_ROLES = new Set(["admin", "super_admin"]);
@@ -107,3 +107,4 @@ const AdminQuoteCreatedNotifications = () => {
 };
 
 export default AdminQuoteCreatedNotifications;
+

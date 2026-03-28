@@ -5,7 +5,7 @@ import { LogOut, Menu, X } from "lucide-react";
 import { sidebarLinks } from "../../data/dashboardData";
 import SidebarItem from "./SidebarItem";
 import { useAuthStore } from "../../state/authStore";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import superflyLogo from "../../assets/superfly_logo.svg";
 
 const Sidebar = () => {
@@ -128,3 +128,4 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
+

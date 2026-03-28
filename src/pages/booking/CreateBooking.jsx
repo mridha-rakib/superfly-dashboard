@@ -1,7 +1,7 @@
 import { Filter, PieChart, Users as UsersIcon, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import CleaningScheduleFields from "../../components/booking/CleaningScheduleFields";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
@@ -180,12 +180,65 @@ const CreateBooking = () => {
     }
   }, [cleanerError]);
 
+  const getPricingAmountErrors = (totalPrice, cleanerPrice) => {
+    const stepErrors = {};
+    const hasTotalPrice = totalPrice !== "";
+    const hasCleanerPrice = cleanerPrice !== "";
+    const totalPriceNumber = Number(totalPrice);
+    const cleanerPriceNumber = Number(cleanerPrice);
+
+    if (
+      hasTotalPrice &&
+      (Number.isNaN(totalPriceNumber) || totalPriceNumber < 0)
+    ) {
+      stepErrors.totalPrice = "Total price must be zero or a positive number.";
+    }
+
+    if (
+      hasCleanerPrice &&
+      (Number.isNaN(cleanerPriceNumber) || cleanerPriceNumber < 0)
+    ) {
+      stepErrors.cleanerPrice = "Cleaner price must be zero or a positive number.";
+    }
+
+    if (
+      hasTotalPrice &&
+      hasCleanerPrice &&
+      !stepErrors.totalPrice &&
+      !stepErrors.cleanerPrice &&
+      cleanerPriceNumber > totalPriceNumber
+    ) {
+      stepErrors.cleanerPrice = "Cleaner price cannot be greater than total price.";
+    }
+
+    return stepErrors;
+  };
+
   const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: null }));
+    const { name, value } = e.target;
+    const nextFormData = {
+      ...formData,
+      [name]: value,
+    };
+
+    setFormData(nextFormData);
+
+    if (name === "totalPrice" || name === "cleanerPrice") {
+      const pricingAmountErrors = getPricingAmountErrors(
+        nextFormData.totalPrice,
+        nextFormData.cleanerPrice
+      );
+
+      setErrors((prev) => {
+        const nextErrors = { ...prev };
+        delete nextErrors.totalPrice;
+        delete nextErrors.cleanerPrice;
+        return { ...nextErrors, ...pricingAmountErrors };
+      });
+      return;
+    }
+
+    setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const clearErrorsByKeys = (keys) => {
@@ -330,33 +383,15 @@ const CreateBooking = () => {
   };
 
   const validatePricingStep = () => {
-    const stepErrors = {};
+    const stepErrors = getPricingAmountErrors(
+      formData.totalPrice,
+      formData.cleanerPrice
+    );
     if (formData.totalPrice === "") {
       stepErrors.totalPrice = "Total price is required.";
     }
-    if (
-      formData.totalPrice !== "" &&
-      (Number.isNaN(Number(formData.totalPrice)) || Number(formData.totalPrice) < 0)
-    ) {
-      stepErrors.totalPrice = "Total price must be zero or a positive number.";
-    }
     if (formData.cleanerPrice === "") {
       stepErrors.cleanerPrice = "Cleaner price is required.";
-    }
-    if (
-      formData.cleanerPrice !== "" &&
-      (Number.isNaN(Number(formData.cleanerPrice)) || Number(formData.cleanerPrice) < 0)
-    ) {
-      stepErrors.cleanerPrice = "Cleaner price must be zero or a positive number.";
-    }
-    if (
-      formData.totalPrice !== "" &&
-      formData.cleanerPrice !== "" &&
-      !Number.isNaN(Number(formData.totalPrice)) &&
-      !Number.isNaN(Number(formData.cleanerPrice)) &&
-      Number(formData.cleanerPrice) > Number(formData.totalPrice)
-    ) {
-      stepErrors.cleanerPrice = "Cleaner price cannot be greater than total price.";
     }
     if (!Array.isArray(formData.assignedCleaners) || formData.assignedCleaners.length === 0) {
       stepErrors.assignedCleaners = "Assign at least one cleaner.";
@@ -1104,6 +1139,7 @@ const CreateBooking = () => {
 
           {isLastStep ? (
             <button
+              key="submit-booking"
               type="submit"
               disabled={isSubmitting}
               className="rounded-xl bg-[#C85344] px-6 py-3 font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1112,6 +1148,7 @@ const CreateBooking = () => {
             </button>
           ) : (
             <button
+              key="next-step"
               type="button"
               onClick={handleNextStep}
               className="rounded-xl bg-[#C85344] px-6 py-3 font-semibold text-white shadow-sm transition hover:brightness-95"
@@ -1126,3 +1163,4 @@ const CreateBooking = () => {
 };
 
 export default CreateBooking;
+

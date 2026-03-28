@@ -2,11 +2,10 @@
 import { Bell, Upload } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useRef, useState } from "react";
-import "react-toastify/dist/ReactToastify.css";
 import userdummy from "../../assets/images/user-dummy.png";
 import { useAuthStore } from "../../state/authStore";
 import { userApi } from "../../services/userApi";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import {
   useMarkAllNotificationsAsReadMutation,
   useMarkNotificationAsReadMutation,
@@ -283,3 +282,4 @@ const Topbar = () => {
 };
 
 export default Topbar;
+

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { getErrorMessage } from "../lib/api-error";
 import { configureHttpClient } from "../lib/httpClient";
 import { authApi } from "../services/authApi";
 
@@ -12,15 +13,8 @@ const initialState = {
   hydrated: false,
 };
 
-const parseError = (error) => {
-  if (!error) return "Something went wrong. Please try again.";
-  if (typeof error === "string") return error;
-  const apiMessage =
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message;
-  return apiMessage || "Unable to complete the request.";
-};
+const parseError = (error, fallback = "Unable to complete the request.") =>
+  getErrorMessage(error, fallback);
 
 const normalizeUser = (u) => {
   if (!u) return null;
@@ -36,7 +30,7 @@ const normalizeUser = (u) => {
 
 export const useAuthStore = create(
   persist(
-    (set, _get) => ({
+    (set) => ({
       ...initialState,
 
       setHydrated: (value) => set({ hydrated: value }),

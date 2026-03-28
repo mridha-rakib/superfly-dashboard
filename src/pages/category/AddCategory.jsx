@@ -6,7 +6,7 @@ import {
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
 } from "../../store/features/api/categoryApiSlice";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 
 function AddCategory() {
@@ -379,3 +379,4 @@ function AddCategory() {
 }
 
 export default AddCategory;
+

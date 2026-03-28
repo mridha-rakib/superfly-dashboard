@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "@/lib/notify";
 import { Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { Pagination } from "../../components/ui/Pagination";
 import { clientApi } from "../../services/clientApi";
@@ -355,3 +355,4 @@ function Clients() {
 }
 
 export default Clients;
+

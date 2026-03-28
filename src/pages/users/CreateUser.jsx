@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { getErrorMessage } from "@/lib/api-error";
+import { toast } from "@/lib/notify";
+import {
+  getFieldErrorId,
+  useInlineFormErrors,
+} from "@/hooks/useInlineFormErrors";
 import { ShieldCheck, UserPlus } from "lucide-react";
 import Button from "../../components/ui/Button";
 import { useCleanerStore } from "../../state/cleanerStore";
@@ -15,13 +20,57 @@ function CreateUser() {
     phoneNumber: "",
     address: "",
   });
+  const { getFieldA11yProps, getFieldError, validateField } = useInlineFormErrors();
 
-  const handleChange = (field, value) => {
+  const getFieldClassName = (fieldName) =>
+    `p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 ${
+      getFieldError(fieldName)
+        ? "border-red-500 focus:border-red-500"
+        : "border-gray-300 focus:border-[#C85344]"
+    }`;
+
+  const validateCleanerPercentage = (value) => {
+    const percentage = Number(value);
+    if (Number.isNaN(percentage) || percentage < 0 || percentage > 100) {
+      return "Cleaner percentage must be between 0 and 100.";
+    }
+    return "";
+  };
+
+  const handleChange = (field, value, event) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (event && getFieldError(field)) {
+      validateField(field, event.target, {
+        label:
+          field === "fullName"
+            ? "Full name"
+            : field === "cleanerPercentage"
+            ? "Cleaner percentage"
+            : "Email",
+        customValidator:
+          field === "cleanerPercentage" ? validateCleanerPercentage : undefined,
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
+
+    const isValid = [
+      ["fullName", "Full name"],
+      ["email", "Email"],
+      ["cleanerPercentage", "Cleaner percentage", validateCleanerPercentage],
+    ].every(([field, label, customValidator]) =>
+      validateField(field, form.elements.namedItem(field), {
+        label,
+        customValidator,
+      })
+    );
+
+    if (!isValid) {
+      return;
+    }
 
     const payload = {
       fullName: formData.fullName.trim(),
@@ -57,11 +106,7 @@ function CreateUser() {
 
       setTimeout(() => navigate("/users"), 400);
     } catch (error) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to create cleaner. Please try again.";
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, "Failed to create cleaner. Please try again."));
     } finally {
       clearError();
     }
@@ -93,12 +138,23 @@ function CreateUser() {
             </label>
             <input
               type="text"
+              name="fullName"
               value={formData.fullName}
-              onChange={(e) => handleChange("fullName", e.target.value)}
+              onChange={(e) => handleChange("fullName", e.target.value, e)}
+              onBlur={(e) => validateField("fullName", e.target, { label: "Full name" })}
               placeholder="Enter full name"
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 focus:border-[#C85344]"
+              className={getFieldClassName("fullName")}
               required
+              {...getFieldA11yProps("fullName")}
             />
+            {getFieldError("fullName") && (
+              <p
+                id={getFieldErrorId("fullName")}
+                className="mt-1 text-sm text-red-600"
+              >
+                {getFieldError("fullName")}
+              </p>
+            )}
           </div>
 
           {/* Email */}
@@ -106,12 +162,20 @@ function CreateUser() {
             <label className="font-semibold text-gray-800 mb-1">Email</label>
             <input
               type="email"
+              name="email"
               value={formData.email}
-              onChange={(e) => handleChange("email", e.target.value)}
+              onChange={(e) => handleChange("email", e.target.value, e)}
+              onBlur={(e) => validateField("email", e.target, { label: "Email" })}
               placeholder="cleaner@email.com"
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 focus:border-[#C85344]"
+              className={getFieldClassName("email")}
               required
+              {...getFieldA11yProps("email")}
             />
+            {getFieldError("email") && (
+              <p id={getFieldErrorId("email")} className="mt-1 text-sm text-red-600">
+                {getFieldError("email")}
+              </p>
+            )}
           </div>
 
           {/* Phone */}
@@ -121,10 +185,11 @@ function CreateUser() {
             </label>
             <input
               type="tel"
+              name="phoneNumber"
               value={formData.phoneNumber}
-              onChange={(e) => handleChange("phoneNumber", e.target.value)}
+              onChange={(e) => handleChange("phoneNumber", e.target.value, e)}
               placeholder="01XXXXXXXXX"
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 focus:border-[#C85344]"
+              className={getFieldClassName("phoneNumber")}
             />
           </div>
 
@@ -135,10 +200,11 @@ function CreateUser() {
             </label>
             <input
               type="text"
+              name="address"
               value={formData.address}
-              onChange={(e) => handleChange("address", e.target.value)}
+              onChange={(e) => handleChange("address", e.target.value, e)}
               placeholder="Street, city"
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 focus:border-[#C85344]"
+              className={getFieldClassName("address")}
             />
           </div>
 
@@ -150,16 +216,34 @@ function CreateUser() {
             <div className="flex items-center gap-3">
               <input
                 type="number"
+                name="cleanerPercentage"
                 value={formData.cleanerPercentage}
-                onChange={(e) => handleChange("cleanerPercentage", e.target.value)}
+                onChange={(e) =>
+                  handleChange("cleanerPercentage", e.target.value, e)
+                }
+                onBlur={(e) =>
+                  validateField("cleanerPercentage", e.target, {
+                    label: "Cleaner percentage",
+                    customValidator: validateCleanerPercentage,
+                  })
+                }
                 placeholder="0 - 100"
-                className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C85344]/20 focus:border-[#C85344] w-full"
+                className={`${getFieldClassName("cleanerPercentage")} w-full`}
                 min="0"
                 max="100"
                 required
+                {...getFieldA11yProps("cleanerPercentage")}
               />
               <span className="text-sm text-gray-500">%</span>
             </div>
+            {getFieldError("cleanerPercentage") && (
+              <p
+                id={getFieldErrorId("cleanerPercentage")}
+                className="mt-1 text-sm text-red-600"
+              >
+                {getFieldError("cleanerPercentage")}
+              </p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
               The percentage this cleaner will earn from each job.
             </p>
@@ -187,3 +271,4 @@ function CreateUser() {
 }
 
 export default CreateUser;
+

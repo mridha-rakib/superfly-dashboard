@@ -2,14 +2,21 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+ARG BUILD_NODE_OPTIONS=--max-old-space-size=512
 ARG VITE_BASE_URL=https://api.superflycleaning.com/api/v1
 ARG VITE_NODE_ENV=production
 
-ENV VITE_BASE_URL=${VITE_BASE_URL}
-ENV VITE_NODE_ENV=${VITE_NODE_ENV}
+ENV NODE_OPTIONS=${BUILD_NODE_OPTIONS} \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    npm_config_loglevel=warn \
+    CI=true \
+    VITE_BASE_URL=${VITE_BASE_URL} \
+    VITE_NODE_ENV=${VITE_NODE_ENV}
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build

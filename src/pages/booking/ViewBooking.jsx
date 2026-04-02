@@ -240,6 +240,20 @@ function ViewBooking() {
     quote.cleaningSchedule.frequency !== "one_time"
       ? schedulePresentation.detailItems
       : [];
+  const scheduleReadableSummary =
+    schedulePresentation.readableSummary || "Schedule details are not available.";
+  const scheduleSummaryLines = Array.isArray(schedulePresentation.summaryLines)
+    ? schedulePresentation.summaryLines
+    : [];
+  const scheduleOccurrenceItems = Array.isArray(schedulePresentation.occurrenceItems)
+    ? schedulePresentation.occurrenceItems
+    : [];
+  const scheduleOccurrenceCountLabel =
+    schedulePresentation.occurrenceCountLabel ||
+    `${scheduleOccurrenceItems.length} scheduled date${
+      scheduleOccurrenceItems.length === 1 ? "" : "s"
+    }`;
+  const scheduleOccurrenceNote = schedulePresentation.occurrenceNote || "";
   const cleaningServiceItems = (() => {
     if (Array.isArray(quote.cleaningServices) && quote.cleaningServices.length) {
       return quote.cleaningServices.map((s) =>
@@ -281,6 +295,92 @@ function ViewBooking() {
         <p className={`${valueClassName} mt-1`}>{item.value}</p>
       </div>
     ));
+
+  const renderExpandedScheduleSection = ({
+    eyebrow = "Schedule",
+    title = "Detailed Schedule",
+    badgeClassName = "bg-gray-100 text-gray-700",
+  } = {}) => (
+    <section className={sectionCardClass}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-gray-400 font-semibold">
+            {eyebrow}
+          </p>
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        </div>
+        <span
+          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${badgeClassName}`}
+        >
+          {scheduleOccurrenceCountLabel}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-4">
+        <div className={statCardClass}>
+          <p className="text-xs uppercase text-gray-500 font-semibold">
+            Readable Summary
+          </p>
+          <p className="mt-3 text-sm leading-7 text-gray-700">
+            {scheduleReadableSummary}
+          </p>
+          {scheduleSummaryLines.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {scheduleSummaryLines.map((line) => (
+                <div
+                  key={line}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                >
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className={statCardClass}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase text-gray-500 font-semibold">
+              Scheduled Dates
+            </p>
+            {scheduleOccurrenceItems.length > 0 && (
+              <span className={chipClass}>
+                {scheduleOccurrenceItems.length} item
+                {scheduleOccurrenceItems.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          {scheduleOccurrenceNote && (
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              {scheduleOccurrenceNote}
+            </p>
+          )}
+          {scheduleOccurrenceItems.length > 0 ? (
+            <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+              {scheduleOccurrenceItems.map((item) => (
+                <div
+                  key={item.dateKey}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-3"
+                >
+                  <p className="text-sm font-semibold text-gray-900">
+                    {item.dateLabel}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {item.weekdayLabel}
+                    {item.timeLabel ? ` | ${item.timeLabel}` : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-gray-600">
+              No scheduled dates are available for this booking.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 
   const resolvedCleaners =
     quote.assignedCleaners && quote.assignedCleaners.length
@@ -550,6 +650,12 @@ function ViewBooking() {
         </div>
       </section>
 
+      {renderExpandedScheduleSection({
+        eyebrow: "Schedule",
+        title: "Detailed Cleaning Schedule",
+        badgeClassName: "bg-[#C85344]/10 text-[#C85344]",
+      })}
+
       <section className={sectionCardClass}>
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
@@ -744,6 +850,12 @@ function ViewBooking() {
           {infoItem("Special Request", specialRequest, 2)}
         </div>
       </section>
+
+      {renderExpandedScheduleSection({
+        eyebrow: "Schedule",
+        title: "Detailed Cleaning Schedule",
+        badgeClassName: "bg-indigo-50 text-indigo-700",
+      })}
 
       <section className={sectionCardClass}>
         <div className="flex items-center justify-between gap-3 mb-3">

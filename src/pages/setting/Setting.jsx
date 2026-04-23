@@ -272,7 +272,7 @@ function Setting() {
 
         <div className="grid gap-4 p-6 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700">Name</label>
+            <label className="text-sm font-semibold text-gray-700">Full Name</label>
             <input
               type="text"
               value={isEditing ? tempUser.name : user.name}

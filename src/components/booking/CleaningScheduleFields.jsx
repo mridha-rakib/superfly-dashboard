@@ -64,7 +64,7 @@ function TimeTextField({ value, onChange, className, placeholder = timePlacehold
       autoComplete="off"
       placeholder={placeholder}
       value={draftValue}
-      onChange={(event) => setDraftValue(event.target.value.toUpperCase())}
+      onChange={(event) => setDraftValue(event.target.value)}
       onBlur={(event) => commitValue(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === "Enter") {

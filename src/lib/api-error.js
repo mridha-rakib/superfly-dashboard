@@ -19,6 +19,7 @@ const NETWORK_ERROR_MESSAGE =
 const TIMEOUT_ERROR_MESSAGE = "The request timed out. Please try again.";
 const TECHNICAL_MESSAGE_PATTERN =
   /\b(ecconn|sql|mongo|casterror|traceback|stack|exception|socket hang up|timeout of \d+ms exceeded)\b/i;
+const GENERIC_SERVER_MESSAGE_PATTERN = /^internal server error\.?$/i;
 
 const isPlainObject = (value) =>
   Object.prototype.toString.call(value) === "[object Object]";
@@ -30,7 +31,12 @@ const coerceMessage = (value) => {
 
 const isHelpfulMessage = (value) => {
   const message = coerceMessage(value);
-  return Boolean(message) && message.length <= 240 && !TECHNICAL_MESSAGE_PATTERN.test(message);
+  return (
+    Boolean(message) &&
+    message.length <= 240 &&
+    !TECHNICAL_MESSAGE_PATTERN.test(message) &&
+    !GENERIC_SERVER_MESSAGE_PATTERN.test(message)
+  );
 };
 
 const appendMessages = (target, value) => {

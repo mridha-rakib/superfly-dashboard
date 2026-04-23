@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BadgeDollarSign, CalendarCheck, FileText, LayoutDashboard, Settings, Users } from "lucide-react";
 import { sidebarLinks } from "../../data/dashboardData";
@@ -58,6 +58,52 @@ const StatCard = ({ title, value, prefix, helper, icon }) => {
   );
 };
 
+const ChartSurface = ({ children, minHeight = 280 }) => {
+  const containerRef = useRef(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updateReadyState = () => {
+      const nextReady = node.clientWidth > 0 && node.clientHeight > 0;
+      setIsReady((current) => (current === nextReady ? current : nextReady));
+    };
+
+    frameId = window.requestAnimationFrame(updateReadyState);
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateReadyState);
+      return () => {
+        window.cancelAnimationFrame(frameId);
+        window.removeEventListener("resize", updateReadyState);
+      };
+    }
+
+    const observer = new ResizeObserver(updateReadyState);
+    observer.observe(node);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="h-72 w-full" style={{ minHeight }}>
+      {isReady ? (
+        children
+      ) : (
+        <div className="h-full w-full animate-pulse rounded-xl bg-gray-50" />
+      )}
+    </div>
+  );
+};
+
 const EarningsOverview = ({ data }) => {
   const [period, setPeriod] = useState("daily");
   const chartData = data?.[period] || [];
@@ -92,8 +138,8 @@ const EarningsOverview = ({ data }) => {
           ))}
         </div>
       </div>
-      <div className="h-72 w-full" style={{ minHeight: 280 }}>
-        <ResponsiveContainer width="100%" height="100%" minHeight={280} minWidth={320}>
+      <ChartSurface minHeight={280}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
             barSize={period === "yearly" ? 40 : 36}
@@ -113,7 +159,7 @@ const EarningsOverview = ({ data }) => {
             <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill={ACCENT} />
           </BarChart>
         </ResponsiveContainer>
-      </div>
+      </ChartSurface>
     </div>
   );
 };

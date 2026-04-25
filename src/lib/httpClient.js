@@ -1,10 +1,9 @@
 import axios from "axios";
 import { hydrateError } from "./api-error";
+import { resolveApiBaseUrl } from "./api-base";
 
 
-const API_BASE_URL =
-  import.meta.env.VITE_BASE_URL ||
-  "https://lights-integral-allied-sims.trycloudflare.com/api/v1";
+const API_BASE_URL = resolveApiBaseUrl();
 
 export const httpClient = axios.create({
   baseURL: API_BASE_URL,

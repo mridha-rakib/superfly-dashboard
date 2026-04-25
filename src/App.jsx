@@ -1,37 +1,53 @@
 // src/App.jsx
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
-import DashboardLayout from "./layout/DashboardLayout/DashboardLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicRoute from "./routes/PublicRoute";
 
-// Auth Pages
-import Login from "./pages/auth/Login";
-import VerifyCode from "./pages/auth/VerifyCode";
-import SetNewPassword from "./pages/auth/SetNewPassword";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import Successful from "./pages/auth/Successful";
-import Dashboard from "./pages/dashboard/Dashboard";
-import EarningsAnalytics from "./pages/dashboard/EarningsAnalytics";
-import Booking from "./pages/booking/Booking";
-import CreateBooking from "./pages/booking/CreateBooking";
-import ViewBooking from "./pages/booking/ViewBooking";
-import EditBooking from "./pages/booking/EditBooking";
-import ServiceRequests from "./pages/booking/ServiceRequests";
-import Users from "./pages/users/Users";
-import ViewUser from "./pages/users/ViewUser";
-import EditUser from "./pages/users/EditUser";
-import CreateUser from "./pages/users/CreateUser";
-import Clients from "./pages/clients/Clients";
-import Pricing from "./pages/pricing/Pricing";
-import JobReports from "./pages/jobreports/JobReports";
-import JobReportDetails from "./pages/jobreports/JobReportDetails";
-import Setting from "./pages/setting/Setting";
+const DashboardLayout = lazy(() =>
+  import("./layout/DashboardLayout/DashboardLayout")
+);
+const Login = lazy(() => import("./pages/auth/Login"));
+const VerifyCode = lazy(() => import("./pages/auth/VerifyCode"));
+const SetNewPassword = lazy(() => import("./pages/auth/SetNewPassword"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const Successful = lazy(() => import("./pages/auth/Successful"));
+const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
+const EarningsAnalytics = lazy(() =>
+  import("./pages/dashboard/EarningsAnalytics")
+);
+const Booking = lazy(() => import("./pages/booking/Booking"));
+const CreateBooking = lazy(() => import("./pages/booking/CreateBooking"));
+const ViewBooking = lazy(() => import("./pages/booking/ViewBooking"));
+const EditBooking = lazy(() => import("./pages/booking/EditBooking"));
+const ServiceRequests = lazy(() => import("./pages/booking/ServiceRequests"));
+const Users = lazy(() => import("./pages/users/Users"));
+const ViewUser = lazy(() => import("./pages/users/ViewUser"));
+const EditUser = lazy(() => import("./pages/users/EditUser"));
+const CreateUser = lazy(() => import("./pages/users/CreateUser"));
+const Clients = lazy(() => import("./pages/clients/Clients"));
+const Pricing = lazy(() => import("./pages/pricing/Pricing"));
+const JobReports = lazy(() => import("./pages/jobreports/JobReports"));
+const JobReportDetails = lazy(() => import("./pages/jobreports/JobReportDetails"));
+const Setting = lazy(() => import("./pages/setting/Setting"));
+
+const routeFallback = (
+  <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-black" />
+  </div>
+);
+
+const renderLazyRoute = (LazyComponent, props = {}) => (
+  <Suspense fallback={routeFallback}>
+    <LazyComponent {...props} />
+  </Suspense>
+);
+
 function App() {
   return (
     <Router>
@@ -42,7 +58,7 @@ function App() {
           path="/login"
           element={
             <PublicRoute>
-              <Login />
+              {renderLazyRoute(Login)}
             </PublicRoute>
           }
         />
@@ -50,7 +66,7 @@ function App() {
           path="/forgot-password"
           element={
             <PublicRoute>
-              <ForgotPassword />
+              {renderLazyRoute(ForgotPassword)}
             </PublicRoute>
           }
         />
@@ -58,7 +74,7 @@ function App() {
           path="/verify-code"
           element={
             <PublicRoute>
-              <VerifyCode />
+              {renderLazyRoute(VerifyCode)}
             </PublicRoute>
           }
         />
@@ -66,7 +82,7 @@ function App() {
           path="/set-new-password"
           element={
             <PublicRoute>
-              <SetNewPassword />
+              {renderLazyRoute(SetNewPassword)}
             </PublicRoute>
           }
         />
@@ -74,7 +90,7 @@ function App() {
           path="/successful"
           element={
             <PublicRoute>
-              <Successful />
+              {renderLazyRoute(Successful)}
             </PublicRoute>
           }
         />
@@ -84,52 +100,69 @@ function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <DashboardLayout />
+              {renderLazyRoute(DashboardLayout)}
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="earnings-analytics" element={<EarningsAnalytics />} />
-          <Route path="bookings" element={<Booking />} />
+          <Route index element={renderLazyRoute(Dashboard)} />
+          <Route
+            path="earnings-analytics"
+            element={renderLazyRoute(EarningsAnalytics)}
+          />
+          <Route path="bookings" element={renderLazyRoute(Booking)} />
           <Route
             path="bookings/residential"
-            element={<Booking presetService="Residential" />}
+            element={renderLazyRoute(Booking, { presetService: "Residential" })}
           />
           <Route
             path="bookings/residential/:id"
-            element={<ViewBooking />}
+            element={renderLazyRoute(ViewBooking)}
           />
           <Route
             path="bookings/commercial"
-            element={<Booking presetService="Commercial" />}
+            element={renderLazyRoute(Booking, { presetService: "Commercial" })}
           />
           <Route
             path="bookings/commercial/:id"
-            element={<ViewBooking />}
+            element={renderLazyRoute(ViewBooking)}
           />
           <Route
             path="bookings/post-construction"
-            element={<Booking presetService="Post-Construction" />}
+            element={renderLazyRoute(Booking, {
+              presetService: "Post-Construction",
+            })}
           />
           <Route
             path="bookings/post-construction/:id"
-            element={<ViewBooking />}
+            element={renderLazyRoute(ViewBooking)}
           />
-          <Route path="bookings/add" element={<CreateBooking />} />
-          <Route path="bookings/:id" element={<ViewBooking />} />
-          <Route path="bookings/:id/edit" element={<EditBooking />} />
-          <Route path="service-requests" element={<ServiceRequests />} />
-          <Route path="service-requests/add" element={<CreateBooking />} />
-          <Route path="service-requests/:id" element={<ViewBooking />} />
-          <Route path="users" element={<Users />} />
-          <Route path="users/add" element={<CreateUser />} />
-          <Route path="users/:id" element={<ViewUser />} />
-          <Route path="users/:id/edit" element={<EditUser />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="pricing" element={<Pricing />} />
-          <Route path="job-reports" element={<JobReports />} />
-          <Route path="job-reports/:reportId" element={<JobReportDetails />} />
-          <Route path="settings" element={<Setting />} />
+          <Route path="bookings/add" element={renderLazyRoute(CreateBooking)} />
+          <Route path="bookings/:id" element={renderLazyRoute(ViewBooking)} />
+          <Route path="bookings/:id/edit" element={renderLazyRoute(EditBooking)} />
+          <Route
+            path="service-requests"
+            element={renderLazyRoute(ServiceRequests)}
+          />
+          <Route
+            path="service-requests/add"
+            element={renderLazyRoute(CreateBooking)}
+          />
+          <Route
+            path="service-requests/:id"
+            element={renderLazyRoute(ViewBooking)}
+          />
+          <Route path="users" element={renderLazyRoute(Users)} />
+          <Route path="users/add" element={renderLazyRoute(CreateUser)} />
+          <Route path="users/:id" element={renderLazyRoute(ViewUser)} />
+          <Route path="users/:id/edit" element={renderLazyRoute(EditUser)} />
+          <Route path="clients" element={renderLazyRoute(Clients)} />
+          <Route path="pricing" element={renderLazyRoute(Pricing)} />
+          <Route path="job-reports" element={renderLazyRoute(JobReports)} />
+          <Route
+            path="job-reports/:reportId"
+            element={renderLazyRoute(JobReportDetails)}
+          />
+          <Route path="settings" element={renderLazyRoute(Setting)} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

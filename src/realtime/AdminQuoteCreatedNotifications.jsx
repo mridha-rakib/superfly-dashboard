@@ -1,31 +1,10 @@
 import { useEffect } from "react";
-import { io } from "socket.io-client";
 import { toast } from "@/lib/notify";
+import { resolveSocketOrigin } from "@/lib/api-base";
 import { useAuthStore } from "../state/authStore";
 
 const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 const NOTIFICATION_REFRESH_EVENT = "admin-notifications:refresh";
-
-const resolveSocketBaseUrl = () => {
-  const configured = (import.meta.env.VITE_BASE_URL || "").trim();
-  const fallback =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/api/v1`
-      : "http://localhost:3000/api/v1";
-
-  try {
-    const url = new URL(
-      configured || fallback,
-      typeof window !== "undefined" ? window.location.origin : undefined,
-    );
-    return url.origin;
-  } catch {
-    if (typeof window !== "undefined") {
-      return window.location.origin;
-    }
-    return "http://localhost:3000";
-  }
-};
 
 const emitRefreshEvent = () => {
   if (typeof window !== "undefined") {
@@ -43,10 +22,8 @@ const AdminQuoteCreatedNotifications = () => {
       return undefined;
     }
 
-    const socket = io(resolveSocketBaseUrl(), {
-      path: "/ws",
-      auth: { token: accessToken },
-    });
+    let isActive = true;
+    let socket;
 
     const onAdminQuoteCreated = (payload = {}) => {
       const service = payload.serviceType || "Booking";
@@ -91,11 +68,33 @@ const AdminQuoteCreatedNotifications = () => {
       emitRefreshEvent();
     };
 
-    socket.on("admin:quote-created", onAdminQuoteCreated);
-    socket.on("admin:report-submitted", onAdminReportSubmitted);
-    socket.on("admin:booking-completed", onAdminBookingCompleted);
+    const connect = async () => {
+      try {
+        const { io } = await import("socket.io-client");
+        if (!isActive) {
+          return;
+        }
+
+        socket = io(resolveSocketOrigin(), {
+          path: "/ws",
+          auth: { token: accessToken },
+        });
+
+        socket.on("admin:quote-created", onAdminQuoteCreated);
+        socket.on("admin:report-submitted", onAdminReportSubmitted);
+        socket.on("admin:booking-completed", onAdminBookingCompleted);
+      } catch (error) {
+        console.error("Failed to initialize admin realtime notifications", error);
+      }
+    };
+
+    void connect();
 
     return () => {
+      isActive = false;
+      if (!socket) {
+        return;
+      }
       socket.off("admin:quote-created", onAdminQuoteCreated);
       socket.off("admin:report-submitted", onAdminReportSubmitted);
       socket.off("admin:booking-completed", onAdminBookingCompleted);
@@ -107,4 +106,3 @@ const AdminQuoteCreatedNotifications = () => {
 };
 
 export default AdminQuoteCreatedNotifications;
-

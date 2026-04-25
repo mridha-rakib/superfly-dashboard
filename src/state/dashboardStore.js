@@ -20,6 +20,7 @@ const initialState = {
     summary: null,
     serviceWise: [],
     cleanerWise: [],
+    cleanerDetail: null,
     bookingWise: {
       rows: [],
       pagination: {
@@ -61,7 +62,14 @@ export const useDashboardStore = create((set) => ({
   },
 
   fetchEarningsAnalytics: async (params = {}) => {
-    set({ isEarningsAnalyticsLoading: true, earningsAnalyticsError: null });
+    set((state) => ({
+      isEarningsAnalyticsLoading: true,
+      earningsAnalyticsError: null,
+      earningsAnalytics: {
+        ...state.earningsAnalytics,
+        cleanerDetail: null,
+      },
+    }));
 
     try {
       const response = await dashboardApi.getEarningsAnalytics(params);
@@ -72,6 +80,7 @@ export const useDashboardStore = create((set) => ({
           summary: payload.summary || null,
           serviceWise: payload.serviceWise || [],
           cleanerWise: payload.cleanerWise || [],
+          cleanerDetail: payload.cleanerDetail || null,
           bookingWise: {
             rows: payload.bookingWise?.rows || [],
             pagination: {

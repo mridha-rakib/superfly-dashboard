@@ -66,7 +66,7 @@ function Users() {
     Math.max(1, Math.ceil((totalItems || 0) / perPage));
 
   const fields = ["fullName", "email", "phone", "accountStatus", "cleanerPercentage"];
-  const head = ["Name", "Email", "Contact", "Status", "Split %"];
+  const head = ["Full Name", "Email", "Contact", "Status", "Split %"];
 
   const statusColors = {
     active: { bg: "bg-green-100", text: "text-green-800", dot: "bg-green-500" },

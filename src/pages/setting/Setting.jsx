@@ -2,8 +2,24 @@ import { useEffect, useState } from "react";
 import { toast } from "@/lib/notify";
 import avatar1 from "../../assets/images/avatar1.jpg";
 import { authApi } from "../../services/authApi";
+import { legalContentApi } from "../../services/legalContentApi";
 import { userApi } from "../../services/userApi";
 import { useAuthStore } from "../../state/authStore";
+
+const LEGAL_PAGE_CONFIG = [
+  {
+    slug: "privacy-policy",
+    label: "Privacy Policy",
+    helper:
+      "Shown on the public website at /privacy-policy. Use plain text with spacing between sections.",
+  },
+  {
+    slug: "terms-and-conditions",
+    label: "Terms and Conditions",
+    helper:
+      "Shown on the public website at /terms-and-conditions. Changes are visible on the frontend immediately.",
+  },
+];
 
 function Setting() {
   const authUser = useAuthStore((s) => s.user);
@@ -33,6 +49,17 @@ function Setting() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [legalPages, setLegalPages] = useState(() =>
+    LEGAL_PAGE_CONFIG.reduce((acc, page) => {
+      acc[page.slug] = {
+        title: page.label,
+        content: "",
+      };
+      return acc;
+    }, {})
+  );
+  const [isLoadingLegalPages, setIsLoadingLegalPages] = useState(true);
+  const [savingLegalSlug, setSavingLegalSlug] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -80,6 +107,54 @@ function Setting() {
     };
     init();
   }, [authUser, setUserInStore]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLegalPages = async () => {
+      setIsLoadingLegalPages(true);
+      try {
+        const entries = await Promise.all(
+          LEGAL_PAGE_CONFIG.map(async (page) => {
+            const response = await legalContentApi.getBySlug(page.slug);
+            return [page.slug, response];
+          })
+        );
+
+        if (!active) return;
+
+        setLegalPages((prev) =>
+          entries.reduce(
+            (acc, [slug, response]) => ({
+              ...acc,
+              [slug]: {
+                title: response?.title || prev[slug]?.title || "",
+                content: response?.content || prev[slug]?.content || "",
+              },
+            }),
+            { ...prev }
+          )
+        );
+      } catch (err) {
+        if (!active) return;
+        toast.error(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Failed to load legal pages."
+        );
+      } finally {
+        if (active) {
+          setIsLoadingLegalPages(false);
+        }
+      }
+    };
+
+    loadLegalPages();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleChange = (field, value) => {
     setTempUser((prev) => ({ ...prev, [field]: value }));
@@ -168,6 +243,49 @@ function Setting() {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
     setPasswordError("");
     setPasswordSuccess("");
+  };
+
+  const handleLegalFieldChange = (slug, field, value) => {
+    setLegalPages((prev) => ({
+      ...prev,
+      [slug]: {
+        ...prev[slug],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveLegalPage = async (slug) => {
+    const page = legalPages[slug];
+    if (!page?.title?.trim() || !page?.content?.trim()) {
+      toast.error("Title and content are required.");
+      return;
+    }
+
+    setSavingLegalSlug(slug);
+    try {
+      const updated = await legalContentApi.updateBySlug(slug, {
+        title: page.title.trim(),
+        content: page.content.trim(),
+      });
+
+      setLegalPages((prev) => ({
+        ...prev,
+        [slug]: {
+          title: updated?.title || page.title.trim(),
+          content: updated?.content || page.content.trim(),
+        },
+      }));
+      toast.success("Legal page updated.");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update legal page."
+      );
+    } finally {
+      setSavingLegalSlug("");
+    }
   };
 
   const handleChangePassword = async () => {
@@ -404,6 +522,91 @@ function Setting() {
           >
             {isChangingPassword ? "Updating..." : "Update Password"}
           </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-6 py-4">
+          <p className="text-xs uppercase tracking-wide text-[#C85344]">Website</p>
+          <h2 className="text-lg font-semibold text-gray-900">Legal Pages</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage the public Privacy Policy and Terms and Conditions pages from
+            here.
+          </p>
+        </div>
+
+        <div className="space-y-6 p-6">
+          {LEGAL_PAGE_CONFIG.map((page) => {
+            const current = legalPages[page.slug] || { title: "", content: "" };
+            const isSavingLegalPage = savingLegalSlug === page.slug;
+
+            return (
+              <section
+                key={page.slug}
+                className="rounded-2xl border border-gray-200 bg-[#fcfcfc] p-5"
+              >
+                <div className="flex flex-col gap-2 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {page.label}
+                    </h3>
+                    <p className="text-sm text-gray-500">{page.helper}</p>
+                  </div>
+                  <span className="rounded-full bg-[#C85344]/10 px-3 py-1 text-xs font-semibold text-[#C85344]">
+                    {page.slug}
+                  </span>
+                </div>
+
+                {isLoadingLegalPages ? (
+                  <div className="space-y-3 py-5">
+                    <div className="h-10 w-full rounded-lg bg-gray-100" />
+                    <div className="h-48 w-full rounded-2xl bg-gray-100" />
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-5">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700">
+                        Page Title
+                      </label>
+                      <input
+                        type="text"
+                        value={current.title}
+                        onChange={(e) =>
+                          handleLegalFieldChange(page.slug, "title", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition focus:ring-2 focus:ring-[#C85344]/20"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700">
+                        Content
+                      </label>
+                      <textarea
+                        rows={14}
+                        value={current.content}
+                        onChange={(e) =>
+                          handleLegalFieldChange(page.slug, "content", e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm leading-6 transition focus:ring-2 focus:ring-[#C85344]/20"
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveLegalPage(page.slug)}
+                        disabled={isSavingLegalPage}
+                        className="rounded-lg bg-[#C85344] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-60"
+                      >
+                        {isSavingLegalPage ? "Saving..." : "Save Page"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 ARG BUILD_NODE_OPTIONS=--max-old-space-size=512
-ARG VITE_BASE_URL=https://api.superflycleaning.com/api/v1
+ARG VITE_BASE_URL=/api/v1
 ARG VITE_NODE_ENV=production
 
 ENV NODE_OPTIONS=${BUILD_NODE_OPTIONS} \

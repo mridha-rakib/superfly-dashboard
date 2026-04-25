@@ -300,7 +300,7 @@ function Clients() {
           <>
             <div className="hidden md:grid grid-cols-7 gap-4 border-b border-gray-200 bg-[#FFF6F3] px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
               <p>No</p>
-              <p>Name</p>
+              <p>Full Name</p>
               <p>Email</p>
               <p>Contact</p>
               <p>Requests</p>

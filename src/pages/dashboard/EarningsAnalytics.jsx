@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useDashboardStore } from "../../state/dashboardStore";
 
@@ -43,6 +44,7 @@ const statusBadgeClass = (value) => {
 };
 
 const EarningsAnalytics = () => {
+  const navigate = useNavigate();
   const {
     earningsAnalytics,
     isEarningsAnalyticsLoading,
@@ -195,6 +197,7 @@ const EarningsAnalytics = () => {
                 <th className="px-4 py-3">Jobs</th>
                 <th className="px-4 py-3">Total</th>
                 <th className="px-4 py-3">Average</th>
+                <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -205,11 +208,20 @@ const EarningsAnalytics = () => {
                   <td className="px-4 py-3 text-gray-700">{formatInteger(row.jobs)}</td>
                   <td className="px-4 py-3 text-gray-700">{formatCurrency(row.totalEarnings)}</td>
                   <td className="px-4 py-3 text-gray-700">{formatCurrency(row.averageEarning)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/earnings-analytics/cleaners/${row.cleanerId}`)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-[#C85344]/40 hover:text-[#C85344]"
+                    >
+                      View Details
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!cleanerWise.length && (
                 <tr>
-                  <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
                     No cleaner earnings data available.
                   </td>
                 </tr>

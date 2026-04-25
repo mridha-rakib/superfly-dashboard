@@ -21,6 +21,9 @@ const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
 const EarningsAnalytics = lazy(() =>
   import("./pages/dashboard/EarningsAnalytics")
 );
+const CleanerEarningsDetail = lazy(() =>
+  import("./pages/dashboard/CleanerEarningsDetail")
+);
 const Booking = lazy(() => import("./pages/booking/Booking"));
 const CreateBooking = lazy(() => import("./pages/booking/CreateBooking"));
 const ViewBooking = lazy(() => import("./pages/booking/ViewBooking"));
@@ -108,6 +111,10 @@ function App() {
           <Route
             path="earnings-analytics"
             element={renderLazyRoute(EarningsAnalytics)}
+          />
+          <Route
+            path="earnings-analytics/cleaners/:cleanerId"
+            element={renderLazyRoute(CleanerEarningsDetail)}
           />
           <Route path="bookings" element={renderLazyRoute(Booking)} />
           <Route
